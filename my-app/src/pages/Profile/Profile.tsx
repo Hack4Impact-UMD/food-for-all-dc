@@ -76,10 +76,7 @@ import HealthCheckbox from "./components/HealthCheckbox";
 import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { deliveryDate } from "../../utils/deliveryDate";
 import { computeClientActiveStatus } from "../../utils/clientStatus";
-import {
-  normalizeClientDatesForRead,
-  normalizeClientDatesForWrite,
-} from "../../utils/clientDate";
+import { normalizeClientDatesForRead, normalizeClientDatesForWrite } from "../../utils/clientDate";
 import { GENDER_OPTIONS, normalizeGender } from "../../utils/gender";
 import { toJSDate } from "../../utils/timestamp";
 import {
@@ -90,10 +87,7 @@ import {
   resolveAddressQuadrant,
   shouldGeocodeClientLocation,
 } from "../../utils/addressFormat";
-import {
-  buildClientAuditMetadata,
-  buildClientAuditWriteMetadata,
-} from "../../utils/clientAudit";
+import { buildClientAuditMetadata, buildClientAuditWriteMetadata } from "../../utils/clientAudit";
 import { removeTagMetadataIfUnused } from "./Tags/tagPersistence";
 import { formatPhoneNumberForSave, normalizePhoneInput } from "../../utils/format";
 
@@ -112,8 +106,9 @@ const DMV_AUTOCOMPLETE_BOUNDS: google.maps.LatLngBoundsLiteral = {
 };
 
 const standardizeAddressDirections = (value: string): string =>
-  value.replace(/\b(northwest|northeast|southwest|southeast)\b/gi, (match) =>
-    ADDRESS_DIRECTION_ABBREVIATIONS[match.toLowerCase()] ?? match
+  value.replace(
+    /\b(northwest|northeast|southwest|southeast)\b/gi,
+    (match) => ADDRESS_DIRECTION_ABBREVIATIONS[match.toLowerCase()] ?? match
   );
 
 const extractQuadrantAbbreviation = (value: string): string => {
@@ -152,10 +147,7 @@ export const isDuplicateClientName = (
   );
 };
 
-export const isDuplicateClient = (
-  candidate: ClientProfile,
-  profile: ClientProfile
-): boolean => {
+export const isDuplicateClient = (candidate: ClientProfile, profile: ClientProfile): boolean => {
   if (!isDuplicateClientName(candidate, profile.firstName, profile.lastName)) return false;
 
   const candidateAddress = normalizeDuplicateAddress(candidate);
@@ -176,9 +168,7 @@ export const shouldCheckForDuplicateClient = (
   previousProfile: ClientProfile | null,
   isNewProfile: boolean
 ): boolean =>
-  isNewProfile ||
-  previousProfile === null ||
-  !isDuplicateClient(previousProfile, profile);
+  isNewProfile || previousProfile === null || !isDuplicateClient(previousProfile, profile);
 
 export const formatDuplicateClientAddress = (profile: ClientProfile): string => {
   const street = formatAddressWithQuadrantAndUnit(
@@ -186,10 +176,7 @@ export const formatDuplicateClientAddress = (profile: ClientProfile): string => 
     profile.quadrant,
     profile.address2
   );
-  const cityStateZip = [
-    profile.city,
-    [profile.state, profile.zipCode].filter(Boolean).join(" "),
-  ]
+  const cityStateZip = [profile.city, [profile.state, profile.zipCode].filter(Boolean).join(" ")]
     .filter(Boolean)
     .join(", ");
 
@@ -825,7 +812,10 @@ const Profile = () => {
         // Check if we found a ward
         if (data.features && data.features.length > 0) {
           const wardFeature = data.features[0];
-          wardName = String(wardFeature.attributes.WARD || wardFeature.attributes.NAME || "").match(/\d+/)?.[0] || "No ward";
+          wardName =
+            String(wardFeature.attributes.WARD || wardFeature.attributes.NAME || "").match(
+              /\d+/
+            )?.[0] || "No ward";
         } else {
           wardName = "No ward";
         }
@@ -891,7 +881,10 @@ const Profile = () => {
       // Check if we found a ward
       if (data.features && data.features.length > 0) {
         const wardFeature = data.features[0];
-        wardName = String(wardFeature.attributes.WARD || wardFeature.attributes.NAME || "").match(/\d+/)?.[0] || "No ward";
+        wardName =
+          String(wardFeature.attributes.WARD || wardFeature.attributes.NAME || "").match(
+            /\d+/
+          )?.[0] || "No ward";
       } else {
         wardName = "No ward";
       }
@@ -1165,19 +1158,30 @@ const Profile = () => {
     if (!profile.firstName.trim() || !profile.lastName.trim() || !zipCode) return [];
 
     const clientsSnapshot = await getDocs(
-      query(
-        collection(db, dataSources.firebase.clientsCollection),
-        where("zipCode", "==", zipCode)
-      )
+      query(collection(db, dataSources.firebase.clientsCollection), where("zipCode", "==", zipCode))
     );
 
     return clientsSnapshot.docs.flatMap((docSnap) => {
       if (excludeUid && docSnap.id === excludeUid) return [];
       const data = docSnap.data() as ClientProfile;
-      return isDuplicateClient(data, profile)
-        ? [{ ...data, uid: data.uid || docSnap.id }]
-        : [];
+      return isDuplicateClient(data, profile) ? [{ ...data, uid: data.uid || docSnap.id }] : [];
     });
+  };
+
+  /**
+   * Called after a TEFAP form is completed for this client.
+   *
+   * The dialog has already written the new certification date to Firestore, but
+   * this component still holds the old one in state and writes the whole profile
+   * on save - without this the next save would put the stale date back.
+   */
+  const handleTefapCertUpdated = (certExpiresOn: string) => {
+    setClientProfile((prev) => ({
+      ...prev,
+      tefapCert: Boolean(certExpiresOn),
+      tefapCertDate: certExpiresOn,
+    }));
+    void refresh();
   };
 
   const handleSave = async () => {
@@ -1360,7 +1364,7 @@ const Profile = () => {
 
       const normalizedStartDate = convertDateForSave(cleanedProfile.startDate);
       const normalizedEndDate = convertDateForSave(cleanedProfile.endDate);
-        const normalizedTefapCertDate = convertDateForSave(cleanedProfile.tefapCertDate);
+      const normalizedTefapCertDate = convertDateForSave(cleanedProfile.tefapCertDate);
       const normalizedPhone = formatProfilePhoneForSave(cleanedProfile.phone);
       const normalizedAlternativePhone = formatProfilePhoneForSave(cleanedProfile.alternativePhone);
       const normalizedStartDateISO = deliveryDate.tryToISODateString(normalizedStartDate);
@@ -1426,10 +1430,7 @@ const Profile = () => {
       );
       const didChangeEndDate = normalizedPreviousEndDateISO !== normalizedEndDateISO;
       const isThreeStrikesReactivation =
-        wasThreeStrikesInactive &&
-        didChangeEndDate &&
-        !previousActiveStatus &&
-        nextActiveStatus;
+        wasThreeStrikesInactive && didChangeEndDate && !previousActiveStatus && nextActiveStatus;
 
       if (isThreeStrikesReactivation) {
         updatedProfile.activeStatus = nextActiveStatus;
@@ -2567,11 +2568,7 @@ const Profile = () => {
     const existingScript = document.getElementById("google-maps-script");
     if (existingScript) {
       // If the script already exists and has finished loading, initialize immediately.
-      if (
-        typeof window.google === "object" &&
-        window.google.maps &&
-        window.google.maps.places
-      ) {
+      if (typeof window.google === "object" && window.google.maps && window.google.maps.places) {
         callback();
         return;
       }
@@ -2629,15 +2626,12 @@ const Profile = () => {
       window.google.maps.places
     ) {
       if (autocompleteRef.current) return; // Prevent re-initialization
-      const autocomplete = new window.google.maps.places.Autocomplete(
-        addressInputRef.current,
-        {
-          types: ["address"],
-          componentRestrictions: { country: "us" },
-          bounds: DMV_AUTOCOMPLETE_BOUNDS,
-          strictBounds: true,
-        }
-      );
+      const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
+        types: ["address"],
+        componentRestrictions: { country: "us" },
+        bounds: DMV_AUTOCOMPLETE_BOUNDS,
+        strictBounds: true,
+      });
       autocompleteRef.current = autocomplete;
       autocomplete.addListener("place_changed", async () => {
         const place = autocomplete.getPlace();
@@ -2902,10 +2896,13 @@ const Profile = () => {
         );
 
         if (eventsToRestore.length > 0) {
-          console.error("Detected unexpected delivery date loss during add; restoring missing dates", {
-            clientId: deliveryClientId,
-            missingDateKeys,
-          });
+          console.error(
+            "Detected unexpected delivery date loss during add; restoring missing dates",
+            {
+              clientId: deliveryClientId,
+              missingDateKeys,
+            }
+          );
           await deliveryService.createEventsBatch(
             eventsToRestore.map((event) => {
               const { id: _id, ...eventWithoutId } = event;
@@ -3040,10 +3037,7 @@ const Profile = () => {
 
         if (missedEvents.length < 3 && clientProfile.autoInactiveReason === "three-strikes") {
           const restoredEndDate = clientProfile.autoInactivePreviousEndDate ?? null;
-          const activeStatus = computeClientActiveStatus(
-            clientProfile.startDate,
-            restoredEndDate
-          );
+          const activeStatus = computeClientActiveStatus(clientProfile.startDate, restoredEndDate);
 
           await setDoc(
             doc(db, dataSources.firebase.clientsCollection, clientId),
@@ -3372,6 +3366,8 @@ const Profile = () => {
               handleFieldChange={(key, value) =>
                 setDynamicFields((prev) => ({ ...prev, [key]: value }))
               }
+              clientId={clientId}
+              onTefapCertUpdated={handleTefapCertUpdated}
             />{" "}
           </SectionBox>
           <SectionBox sx={{ textAlign: "right", width: "100%" }}>

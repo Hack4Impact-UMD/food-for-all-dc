@@ -1,0 +1,61 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules
+//
+// This file is the source of truth for the bucket: the deploy job in
+// .github/workflows/firebase-cicd.yml pushes it on every merge to main, which
+// replaces the bucket's rules wholesale. It must therefore stay a complete set,
+// not just the tefap-forms additions. Everything not named here is denied by the
+// catch-all at the end.
+//
+// Run `npm run check:rules` against the emulators before merging a change here.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Role lives on the user's Firestore document, so Storage has to reach
+    // across to read it. Costs one Firestore read per storage operation.
+    function isAdmin() {
+      return isSignedIn()
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+    }
+
+    // Allow read access to configuration files ONLY for authenticated users
+    match /profile-fields.json {
+      allow read: if isSignedIn();
+    }
+
+    match /config.json {
+      allow read: if isSignedIn();
+    }
+
+    match /fields.json {
+      allow read: if isSignedIn();
+    }
+
+    match /profile-config.json {
+      allow read: if isSignedIn();
+    }
+
+    // Blank TEFAP templates. Any signed-in user may read one, because filling a
+    // form for a client requires downloading the template. Only admins may add
+    // or replace one.
+    //
+    // Templates are never overwritten in practice - the form service writes each
+    // upload under a fresh form id - so a successful write here is always a new
+    // template rather than a change to one that past submissions regenerate from.
+    match /tefap-forms/{formId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin()
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+
+    // Default rule - deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

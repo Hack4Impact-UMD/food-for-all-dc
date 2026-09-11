@@ -14,6 +14,7 @@ import ClientReport from "./pages/Reports/ClientReport";
 import ReferralAgenciesReport from "./pages/Reports/ReferralAgenciesReport";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import ClientQueryTool from "./pages/ClientQueryTool/ClientQueryTool";
+import TefapFormsPage from "./pages/TefapForms/TefapFormsPage";
 import { UserType } from "./types";
 
 export interface RouteMeta {
@@ -129,6 +130,15 @@ export const routesConfig: AppRoute[] = [
               title: "Ad-Hoc Query Tool",
               description: "Read-only ad-hoc client query tool",
               icon: "travel_explore",
+            },
+          },
+          {
+            path: "tefap",
+            element: <TefapFormsPage />,
+            meta: {
+              title: "TEFAP Forms",
+              description: "TEFAP template upload and field mapping",
+              icon: "description",
             },
           },
         ],
