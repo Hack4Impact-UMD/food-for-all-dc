@@ -151,7 +151,22 @@ npm run check:rules
 ```
 
 This checks `storage.rules` end to end, including the cross-service Firestore
-lookup that decides who counts as an admin. Run it before deploying rules.
+lookup that decides who counts as an admin. Run it before merging a rules change.
+
+### Deploying rules and indexes
+
+`my-app/storage.rules` and `my-app/firestore.indexes.json` are deployed by the
+`deploy` job in `.github/workflows/firebase-cicd.yml` on every merge to `main`,
+before Hosting and Functions go out. Nothing else needs to be run by hand.
+
+Because that deploy replaces the bucket's rules wholesale, `storage.rules` has to
+stay a **complete** set for the bucket, not just the paths a given feature adds.
+For the same reason, do not run a bare `firebase deploy` locally - it would push
+your working copy of the rules to production. Deploy a single target instead, for
+example `firebase deploy --only hosting`.
+
+Firestore **rules** are still managed in the Firebase console and are not in this
+repo; `firebase.json` intentionally declares only `firestore.indexes`.
 
 ## Common Workflows
 

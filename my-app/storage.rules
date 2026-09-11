@@ -2,8 +2,13 @@ rules_version = '2';
 
 // Firebase Storage Security Rules
 //
-// Mirrors the rules already deployed for this bucket, plus the tefap-forms
-// prefix. Everything not named here stays denied by the catch-all at the end.
+// This file is the source of truth for the bucket: the deploy job in
+// .github/workflows/firebase-cicd.yml pushes it on every merge to main, which
+// replaces the bucket's rules wholesale. It must therefore stay a complete set,
+// not just the tefap-forms additions. Everything not named here is denied by the
+// catch-all at the end.
+//
+// Run `npm run check:rules` against the emulators before merging a change here.
 service firebase.storage {
   match /b/{bucket}/o {
     function isSignedIn() {

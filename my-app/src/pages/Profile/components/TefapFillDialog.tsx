@@ -109,6 +109,12 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
   // certification for the same client, form and day.
   const submissionIdRef = useRef("");
 
+  // Mirrors submissionIdRef for rendering. Once the append-only record exists
+  // the answers behind it can no longer change, so every control that edits them
+  // is locked - otherwise an edit made before the retry would reach the PDF and
+  // the client profile while the stored submission kept the old values.
+  const [recorded, setRecorded] = useState(false);
+
   const actor: TefapActor = useMemo(
     () => ({
       uid: user?.uid ?? "",
@@ -132,6 +138,7 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
     setFilledBytes(null);
     setIssues([]);
     submissionIdRef.current = "";
+    setRecorded(false);
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = "";
@@ -187,13 +194,17 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
 
   const setValue = useCallback(
     (key: string, value: string | boolean) => {
+      // The stored submission is append-only, so once it exists these values are
+      // what it holds. Refusing the edit here keeps that true no matter which
+      // control calls in.
+      if (recorded) return;
       setValues((current) => {
         const next = new Map(current);
         next.set(key, value);
         return selectedForm ? applyExclusivity(selectedForm.fields, next, key) : next;
       });
     },
-    [selectedForm]
+    [recorded, selectedForm]
   );
 
   const handleReview = useCallback(async () => {
@@ -254,6 +265,7 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
             actor
           );
           submissionIdRef.current = submission.id;
+          setRecorded(true);
         } catch (error) {
           showError(error instanceof Error ? error.message : "Failed to save the TEFAP form.");
           return;
@@ -275,7 +287,7 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
         showError(
           "The TEFAP form was saved, but the client's certification date could not be " +
             `updated: ${error instanceof Error ? error.message : "unknown error"}. ` +
-            "Press Save again to retry - the form will not be recorded twice."
+            "Press Retry - the form will not be recorded twice, and its answers are now locked."
         );
         return;
       }
@@ -499,6 +511,14 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
               </Alert>
             )}
 
+            {recorded && (
+              <Alert severity="info">
+                This form is already recorded and its answers can no longer be changed. Only the
+                client&apos;s certification date is still to be updated. To correct an answer,
+                cancel and complete the form again.
+              </Alert>
+            )}
+
             <Paper variant="outlined" sx={{ ...cardSx, p: 2 }}>
               <Stack
                 direction={{ xs: "column", sm: "row" }}
@@ -512,6 +532,7 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
                   type="date"
                   value={certExpiresOn}
                   onChange={(event) => setCertExpiresOn(event.target.value)}
+                  disabled={recorded}
                   InputLabelProps={{ shrink: true }}
                   helperText={`Suggested: ${selectedForm.certValidityMonths} mo`}
                 />
@@ -560,9 +581,13 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
         )}
         {step === 2 && (
           <>
-            <Button onClick={() => setStep(1)} disabled={saving} sx={quietButtonSx}>
-              Back
-            </Button>
+            {/* Hidden once the submission is recorded: going back would edit
+                answers that the stored record can no longer be updated to match. */}
+            {!recorded && (
+              <Button onClick={() => setStep(1)} disabled={saving} sx={quietButtonSx}>
+                Back
+              </Button>
+            )}
             <Button
               variant="contained"
               onClick={() => void handleSave()}
@@ -574,7 +599,7 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
               }
               sx={primaryButtonSx}
             >
-              {saving ? "Saving..." : "Save"}
+              {saving ? "Saving..." : recorded ? "Retry" : "Save"}
             </Button>
           </>
         )}

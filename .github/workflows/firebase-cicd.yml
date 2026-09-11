@@ -147,5 +147,11 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
+      # Rules and indexes go first so the bucket accepts the new uploads, and so
+      # Firestore has started building the composite indexes, before Hosting
+      # serves code that depends on either. Index builds finish asynchronously.
+      - name: Deploy Firestore indexes and Storage rules
+        run: firebase deploy --project "$FIREBASE_PROJECT_ID" --only firestore:indexes,storage --non-interactive
+
       - name: Deploy Hosting and Functions
         run: firebase deploy --project "$FIREBASE_PROJECT_ID" --only hosting,functions --non-interactive
