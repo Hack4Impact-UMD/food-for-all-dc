@@ -126,10 +126,10 @@ export default function BasePage() {
 
   // Route protection for every page rendered inside this layout (incl. Reports)
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && (!user || !userRole)) {
       navigate("/", { replace: true });
     }
-  }, [loading, user, navigate]);
+  }, [loading, user, userRole, navigate]);
 
   useEffect(() => {
     // Use full paths for comparison as location.pathname includes the base
@@ -190,6 +190,10 @@ export default function BasePage() {
 
   // Conditionally add items based on role
   const navItems = useMemo(() => {
+    if (!userRole) {
+      return [];
+    }
+
     const items = [...BASE_NAV_ITEMS];
 
     items.push({ text: "Routes", icon: <LocalShippingIcon />, link: "/routes" });
@@ -356,9 +360,7 @@ export default function BasePage() {
             </ListItem>
           ))}
         </List>
-        <Typography
-          sx={{ padding: "8px" }}
-        >{`Logged in as: ${name} (${userRole ?? "Unknown"})`}</Typography>
+        <Typography sx={{ padding: "8px" }}>{`Logged in as: ${name ?? user?.email} (${userRole})`}</Typography>
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
         <List sx={{ padding: "0 8px", width: "100%" }}>
           <ListItem key="Documentation" disablePadding sx={{ mb: 1 }}>

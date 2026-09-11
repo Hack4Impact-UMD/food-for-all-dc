@@ -1,11 +1,7 @@
 // src/components/Login.tsx
 
 import React, { useState, useEffect } from "react";
-import {
-  signInWithEmailAndPassword,
-  sendPasswordResetEmail,
-  onAuthStateChanged,
-} from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { AuthError } from "../../types/user-types";
 import { useNavigate } from "react-router-dom";
 import Button from "@mui/material/Button";
@@ -22,6 +18,7 @@ import { auth } from "../../auth/firebaseConfig"; // Use the initialized auth fr
 import styles from "./Login.module.css";
 import foodForAllDCLogin from "../../assets/food-for-all-dc-login.png";
 import foodForAllDCLogo from "../../assets/food-for-all-dc-logo.jpg";
+import { useAuth } from "../../auth/AuthProvider";
 
 function Login() {
   const [loginEmail, setLoginEmail] = useState("");
@@ -33,6 +30,7 @@ function Login() {
   const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
+  const { user, userRole, loading: authLoading } = useAuth();
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -57,17 +55,11 @@ function Login() {
     }
   }, []);
 
-  //Route Protection
-  React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: any) => {
-      if (user) {
-        navigate("/clients");
-      }
-    });
-
-    // Cleanup the listener when the component unmounts
-    return () => unsubscribe();
-  }, [navigate]);
+  useEffect(() => {
+    if (!authLoading && user && userRole) {
+      navigate("/clients", { replace: true });
+    }
+  }, [authLoading, navigate, user, userRole]);
 
   // Helper to map Firebase login errors to AuthError
   const mapLoginError = (error: any): AuthError => {
@@ -99,7 +91,6 @@ function Login() {
     setResetPasswordMessage("");
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
-      navigate("/clients");
     } catch (error: any) {
       console.error("Login Error:", error);
       setLoginError(mapLoginError(error));

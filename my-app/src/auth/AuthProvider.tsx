@@ -135,6 +135,11 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
     const auth = getFirebaseAuth();
     const unsubscribe = onAuthStateChanged(auth, async (newUser: any) => {
       if (newUser) {
+        setLoading(true);
+        setUser(null);
+        setName(null);
+        setToken(null);
+        setUserRole(null);
         // Map Firebase User to AuthUser
         const mappedUser: AuthUser = {
           uid: newUser.uid,
@@ -145,7 +150,6 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
           phoneNumber: newUser.phoneNumber,
           providerId: newUser.providerId,
         };
-        setUser(mappedUser);
         try {
           const tokenPromise = newUser.getIdTokenResult();
           const rolePromise = fetchUserProfile(newUser.uid);
@@ -156,11 +160,21 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
             Promise.all([tokenPromise, rolePromise]),
             timeoutPromise,
           ]);
+          if (!role) {
+            throw new Error("No valid user role was found for this account.");
+          }
+          setUser(mappedUser);
           setToken(tokenResult);
           setUserRole(role);
           setName(name);
           setError(null);
         } catch (err: any) {
+          try {
+            await signOut(auth);
+          } catch (signOutError) {
+            console.error("Error signing out invalid session:", signOutError);
+          }
+          setUser(null);
           setToken(null);
           setName(null);
           setUserRole(null);
