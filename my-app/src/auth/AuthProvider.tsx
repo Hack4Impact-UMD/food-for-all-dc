@@ -1,10 +1,18 @@
 import { onAuthStateChanged, signOut, type IdTokenResult } from "firebase/auth";
 import { AuthUser, AuthError } from "../types/user-types";
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { getFirebaseAuth, getFirebaseDb } from "./firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import dataSources from "../config/dataSources";
-import { UserType } from "../types";
+import { UserType, parseUserRole } from "../types";
 
 export interface AuthContextType {
   user: AuthUser | null;
@@ -43,6 +51,93 @@ interface CacheEntry {
 
 const userRoleCache = new Map<string, CacheEntry>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const AUTH_ATTEMPT_TIMEOUT = 5000;
+const PROFILE_LOOKUP_ATTEMPTS = 3;
+const PROFILE_RETRY_BASE_DELAY = 300;
+
+/** The cache is module state and outlives any single provider, so tests must clear it. */
+export const resetUserRoleCache = () => userRoleCache.clear();
+
+/** Error carrying a stable `code`, matching the shape the auth listener reports. */
+const codedError = (code: string, message: string): Error & { code: string } =>
+  Object.assign(new Error(message), { code });
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+// Retrying these can never succeed, and reporting them as a connection problem
+// sends the user chasing their network instead of an administrator.
+const NON_RETRYABLE_CODES = new Set([
+  "permission-denied",
+  "unauthenticated",
+  "auth/user-disabled",
+  "auth/user-token-expired",
+  "auth/invalid-user-token",
+]);
+
+const errorCode = (error: unknown): string => (error as { code?: string })?.code ?? "";
+
+const isRetryable = (error: unknown): boolean => !NON_RETRYABLE_CODES.has(errorCode(error));
+
+/** Rejects if `operation` has not settled within the per-attempt budget. */
+const withTimeout = async <T,>(operation: () => Promise<T>): Promise<T> => {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation(),
+      new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(
+          () => reject(codedError("auth/timeout", "Signing in took too long. Please try again.")),
+          AUTH_ATTEMPT_TIMEOUT
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+};
+
+/**
+ * Runs `operation` with a per-attempt timeout, retrying transient failures. The
+ * timeout is per attempt so the whole retry budget always fits inside it, and
+ * `isCancelled` stops the loop once a newer auth event has superseded this one.
+ */
+const withRetries = async <T,>(
+  operation: () => Promise<T>,
+  isCancelled: () => boolean = () => false
+): Promise<T> => {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= PROFILE_LOOKUP_ATTEMPTS; attempt++) {
+    if (isCancelled()) {
+      throw codedError("auth/superseded", "This sign-in was replaced by a newer one.");
+    }
+    try {
+      return await withTimeout(operation);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryable(error) || attempt === PROFILE_LOOKUP_ATTEMPTS) {
+        break;
+      }
+      await delay(PROFILE_RETRY_BASE_DELAY * attempt);
+    }
+  }
+  throw lastError;
+};
+
+/** Single Firestore read. Throws on failure so callers can retry. */
+const readUserProfile = async (
+  uid: string
+): Promise<{ role: UserType | null; name: string | null }> => {
+  const db = getFirebaseDb();
+  const userDocRef = doc(db, dataSources.firebase.usersCollection, uid);
+  const userDoc = await getDoc(userDocRef);
+
+  if (!userDoc.exists()) {
+    return { role: null, name: null };
+  }
+
+  const userData = userDoc.data();
+  return { role: parseUserRole(userData.role), name: userData.name ?? null };
+};
 
 export const AuthProvider = ({ children }: Props): React.ReactElement => {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -51,6 +146,9 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<UserType | null>(null);
   const [error, setError] = useState<AuthError | null>(null);
+  // signOut() re-enters this listener with a null user, which clears auth state.
+  // The reason we are ejecting the session is handed to that event so it survives.
+  const pendingAuthErrorRef = useRef<AuthError | null>(null);
 
   const logout = useCallback(async () => {
     const auth = getFirebaseAuth();
@@ -74,58 +172,34 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
   }, []);
 
   const fetchUserProfile = useCallback(
-    async (uid: string): Promise<{ role: UserType | null; name: string | null }> => {
+    async (
+      uid: string,
+      isCancelled: () => boolean
+    ): Promise<{ role: UserType | null; name: string | null }> => {
       // Check cache first with expiration
       const cachedEntry = userRoleCache.get(uid);
       if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_DURATION) {
         return { role: cachedEntry.role, name: cachedEntry.name };
       }
 
+      // A lookup that never completed is not the same as an account with no role,
+      // so retry transient Firestore failures before giving up.
       try {
-        const db = getFirebaseDb();
-        const userDocRef = doc(db, dataSources.firebase.usersCollection, uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const roleString = userData.role;
-          const userName = userData.name ?? null;
-          let roleEnum: UserType | null = null;
-
-          if (roleString) {
-            switch (roleString) {
-              case "Admin":
-                roleEnum = UserType.Admin;
-                break;
-              case "Manager":
-                roleEnum = UserType.Manager;
-                break;
-              case "Client Intake":
-                roleEnum = UserType.ClientIntake;
-                break;
-              default:
-                roleEnum = null;
-            }
-          }
-
-          // Cache the result with timestamp
-          userRoleCache.set(uid, {
-            role: roleEnum,
-            name: userName,
-            timestamp: Date.now(),
-          });
-          return { role: roleEnum, name: userName };
-        } else {
-          userRoleCache.set(uid, {
-            role: null,
-            name: null,
-            timestamp: Date.now(),
-          });
-          return { role: null, name: null };
-        }
+        const profile = await withRetries(() => readUserProfile(uid), isCancelled);
+        // Only a completed lookup is cacheable.
+        userRoleCache.set(uid, { ...profile, timestamp: Date.now() });
+        return profile;
       } catch (error) {
-        console.error("Error fetching user role:", error);
-        return { role: null, name: null };
+        if (errorCode(error) === "auth/superseded") {
+          throw error;
+        }
+        console.error("Error fetching user role after retries:", error);
+        throw codedError(
+          "auth/profile-unavailable",
+          isRetryable(error)
+            ? "We couldn't verify your account right now. Check your connection and try again."
+            : "We couldn't read your account profile. Please contact an administrator."
+        );
       }
     },
     []
@@ -133,8 +207,19 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
 
   useEffect(() => {
     const auth = getFirebaseAuth();
+    let authEventId = 0;
     const unsubscribe = onAuthStateChanged(auth, async (newUser: any) => {
+      const eventId = ++authEventId;
+      const isSuperseded = () => eventId !== authEventId;
       if (newUser) {
+        pendingAuthErrorRef.current = null;
+        setUser(null);
+        setName(null);
+        setToken(null);
+        setUserRole(null);
+        // A fresh attempt starts clean, so an earlier rejection is not left
+        // standing over new input on the login page.
+        setError(null);
         // Map Firebase User to AuthUser
         const mappedUser: AuthUser = {
           uid: newUser.uid,
@@ -145,42 +230,86 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
           phoneNumber: newUser.phoneNumber,
           providerId: newUser.providerId,
         };
-        setUser(mappedUser);
         try {
-          const tokenPromise = newUser.getIdTokenResult();
-          const rolePromise = fetchUserProfile(newUser.uid);
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error("Auth timeout")), 10000);
-          });
-          const [tokenResult, { role, name }] = await Promise.race([
-            Promise.all([tokenPromise, rolePromise]),
-            timeoutPromise,
+          // The token refresh is as network-bound as the profile read, so it gets
+          // the same retries instead of ejecting a valid session on one blip.
+          const [tokenResult, { role, name: profileName }] = await Promise.all([
+            withRetries<IdTokenResult>(() => newUser.getIdTokenResult(), isSuperseded),
+            fetchUserProfile(newUser.uid, isSuperseded),
           ]);
+          if (isSuperseded()) {
+            return;
+          }
+          if (!role) {
+            throw codedError(
+              "auth/missing-role",
+              "This account isn't set up with an application role yet. Please contact an administrator."
+            );
+          }
+          setUser(mappedUser);
           setToken(tokenResult);
           setUserRole(role);
-          setName(name);
+          setName(profileName);
           setError(null);
         } catch (err: any) {
+          if (isSuperseded()) {
+            return;
+          }
+          let authError: AuthError = {
+            code: err?.code || "auth/token-role-error",
+            message: err?.message || "Failed to fetch token or role.",
+          };
+          console.error("Error fetching user token or role:", err);
+          userRoleCache.delete(newUser.uid);
+          // Hand the reason to the null-user event that signOut is about to fire,
+          // otherwise it clears the error before anyone can read it.
+          pendingAuthErrorRef.current = authError;
+          try {
+            await signOut(auth);
+          } catch (signOutError) {
+            console.error("Error signing out invalid session:", signOutError);
+            // The session is still live, so report that rather than a clean
+            // rejection the user has no way to act on.
+            authError = {
+              code: "auth/signout-failed",
+              message: "We couldn't end this session. Please reload the page and try again.",
+            };
+            pendingAuthErrorRef.current = authError;
+          }
+          if (isSuperseded()) {
+            // The null-user event already cleared the session and applied the error.
+            return;
+          }
+          pendingAuthErrorRef.current = null;
+          setUser(null);
           setToken(null);
           setName(null);
           setUserRole(null);
-          setError({
-            code: err.code || "auth/token-role-error",
-            message: err.message || "Failed to fetch token or role.",
-          });
-          console.error("Error fetching user token or role:", err);
+          setError(authError);
         }
       } else {
+        const pendingAuthError = pendingAuthErrorRef.current;
+        pendingAuthErrorRef.current = null;
         setUser(null);
         setName(null);
         setToken(null);
         setUserRole(null);
-        setError(null);
+        // Only ever carry a reason in. signOut() notifies this listener on a
+        // deferred microtask, so the event that ejected the session may already
+        // have applied its own reason, and clearing it would hide why.
+        if (pendingAuthError) {
+          setError(pendingAuthError);
+        }
       }
-      setLoading(false);
+      if (!isSuperseded()) {
+        setLoading(false);
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      authEventId += 1;
+      unsubscribe();
+    };
   }, [fetchUserProfile]);
 
   // Memoize the context value to prevent unnecessary re-renders

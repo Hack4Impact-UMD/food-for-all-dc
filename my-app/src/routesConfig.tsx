@@ -30,6 +30,8 @@ export interface AppRoute {
   children?: AppRoute[];
 }
 
+const dashboardRoles = [UserType.Admin, UserType.Manager, UserType.ClientIntake];
+
 export const routesConfig: AppRoute[] = [
   {
     path: "/",
@@ -55,9 +57,15 @@ export const routesConfig: AppRoute[] = [
   },
   {
     path: "/*",
-    element: <BasePage />,
+    element: (
+      <ProtectedRoute allowedRoles={dashboardRoles}>
+        <BasePage />
+      </ProtectedRoute>
+    ),
     meta: { title: "Dashboard", description: "Main app dashboard", icon: "dashboard" },
     children: [
+      // The layout route above already requires one of `dashboardRoles`, so these
+      // need no further gate. Routes below narrow it further.
       {
         path: "clients",
         element: <Spreadsheet />,
@@ -72,7 +80,6 @@ export const routesConfig: AppRoute[] = [
           icon: "calendar_today",
         },
       },
-      // DEV ROUTE: Print all event dates under /calendar
       {
         path: "profile/:clientId?",
         element: <Profile />,

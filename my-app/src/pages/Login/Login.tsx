@@ -1,11 +1,7 @@
 // src/components/Login.tsx
 
 import React, { useState, useEffect } from "react";
-import {
-  signInWithEmailAndPassword,
-  sendPasswordResetEmail,
-  onAuthStateChanged,
-} from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { AuthError } from "../../types/user-types";
 import { useNavigate } from "react-router-dom";
 import Button from "@mui/material/Button";
@@ -22,6 +18,7 @@ import { auth } from "../../auth/firebaseConfig"; // Use the initialized auth fr
 import styles from "./Login.module.css";
 import foodForAllDCLogin from "../../assets/food-for-all-dc-login.png";
 import foodForAllDCLogo from "../../assets/food-for-all-dc-logo.jpg";
+import { useAuth } from "../../auth/AuthProvider";
 
 function Login() {
   const [loginEmail, setLoginEmail] = useState("");
@@ -33,6 +30,11 @@ function Login() {
   const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
+  const { user, userRole, loading: authLoading, error: authError } = useAuth();
+
+  // Credentials can be valid while the session is still rejected (no application
+  // role, or the role lookup failed), so surface whichever reason applies.
+  const displayedError = loginError ?? authError;
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -57,17 +59,19 @@ function Login() {
     }
   }, []);
 
-  //Route Protection
-  React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: any) => {
-      if (user) {
-        navigate("/clients");
-      }
-    });
+  useEffect(() => {
+    if (!authLoading && user && userRole) {
+      navigate("/clients", { replace: true });
+    }
+  }, [authLoading, navigate, user, userRole]);
 
-    // Cleanup the listener when the component unmounts
-    return () => unsubscribe();
-  }, [navigate]);
+  // Valid credentials are only half of a sign-in: AuthProvider still has to fetch
+  // the role. Release the button once that reports back, not when Firebase does.
+  useEffect(() => {
+    if (authError) {
+      setIsLoading(false);
+    }
+  }, [authError]);
 
   // Helper to map Firebase login errors to AuthError
   const mapLoginError = (error: any): AuthError => {
@@ -99,11 +103,10 @@ function Login() {
     setResetPasswordMessage("");
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
-      navigate("/clients");
+      // Stay busy until the auth state resolves into a session or a reason.
     } catch (error: any) {
       console.error("Login Error:", error);
       setLoginError(mapLoginError(error));
-    } finally {
       setIsLoading(false);
     }
   };
@@ -202,9 +205,9 @@ function Login() {
               </p>
             </div>
 
-            {loginError && (
+            {displayedError && (
               <p className={styles.error} role="alert">
-                {loginError.message}
+                {displayedError.message}
               </p>
             )}
             {resetPasswordMessage && <p className={styles.resetMessage}>{resetPasswordMessage}</p>}

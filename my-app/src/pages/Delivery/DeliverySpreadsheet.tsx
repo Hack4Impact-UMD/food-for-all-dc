@@ -81,7 +81,6 @@ import {
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
-import { onAuthStateChanged } from "firebase/auth";
 const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
@@ -626,7 +625,7 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
   const testing = false;
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
   const limits = useLimits();
   const [rows, setRows] = useState<DeliveryRowData[]>([]);
   const [rawClientData, setRawClientData] = useState<DeliveryRowData[]>([]);
@@ -1221,18 +1220,10 @@ const DeliverySpreadsheet: React.FC = () => {
     };
   }, [deliveriesForDate]);
 
-  // Route Protection
+  // ProtectedRoute owns the redirect; this only tracks whose saved searches to load.
   React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: any) => {
-      setCurrentUserId(user?.uid ?? "guest");
-      if (!user) {
-        navigate("/");
-      }
-    });
-
-    // Cleanup the listener when the component unmounts
-    return () => unsubscribe();
-  }, [navigate]);
+    setCurrentUserId(user?.uid ?? "guest");
+  }, [user]);
 
   //control popup state
 
