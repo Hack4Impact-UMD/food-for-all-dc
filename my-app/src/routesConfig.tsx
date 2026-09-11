@@ -64,53 +64,46 @@ export const routesConfig: AppRoute[] = [
     ),
     meta: { title: "Dashboard", description: "Main app dashboard", icon: "dashboard" },
     children: [
+      // The layout route above already requires one of `dashboardRoles`, so these
+      // need no further gate. Routes below narrow it further.
       {
-        element: <ProtectedRoute allowedRoles={dashboardRoles} />,
-        children: [
-          {
-            path: "clients",
-            element: <Spreadsheet />,
-            meta: {
-              title: "Clients",
-              description: "Client management spreadsheet",
-              icon: "group",
-            },
-          },
-          {
-            path: "calendar",
-            element: <CalendarPage />,
-            meta: {
-              title: "Calendar",
-              description: "Delivery and event calendar",
-              icon: "calendar_today",
-            },
-          },
-          {
-            path: "profile/:clientId?",
-            element: <Profile />,
-            meta: { title: "Profile", description: "Client profile page", icon: "person" },
-          },
-          {
-            path: "routes",
-            element: <DeliverySpreadsheet />,
-            meta: { title: "Routes", description: "Route management", icon: "local_shipping" },
-          },
-          {
-            path: "reports/summary",
-            element: <SummaryReport />,
-            meta: { title: "Summary Report", icon: "assessment" },
-          },
-          {
-            path: "reports/clients",
-            element: <ClientReport />,
-            meta: { title: "Snapshot Client Report", icon: "group" },
-          },
-          {
-            path: "reports/referral-agencies",
-            element: <ReferralAgenciesReport />,
-            meta: { title: "Referral Agencies Report", icon: "business" },
-          },
-        ],
+        path: "clients",
+        element: <Spreadsheet />,
+        meta: { title: "Clients", description: "Client management spreadsheet", icon: "group" },
+      },
+      {
+        path: "calendar",
+        element: <CalendarPage />,
+        meta: {
+          title: "Calendar",
+          description: "Delivery and event calendar",
+          icon: "calendar_today",
+        },
+      },
+      {
+        path: "profile/:clientId?",
+        element: <Profile />,
+        meta: { title: "Profile", description: "Client profile page", icon: "person" },
+      },
+      {
+        path: "routes",
+        element: <DeliverySpreadsheet />,
+        meta: { title: "Routes", description: "Route management", icon: "local_shipping" },
+      },
+      {
+        path: "reports/summary",
+        element: <SummaryReport />,
+        meta: { title: "Summary Report", icon: "assessment" },
+      },
+      {
+        path: "reports/clients",
+        element: <ClientReport />,
+        meta: { title: "Snapshot Client Report", icon: "group" },
+      },
+      {
+        path: "reports/referral-agencies",
+        element: <ReferralAgenciesReport />,
+        meta: { title: "Referral Agencies Report", icon: "business" },
       },
       {
         element: <ProtectedRoute allowedRoles={[UserType.Admin, UserType.Manager]} />,

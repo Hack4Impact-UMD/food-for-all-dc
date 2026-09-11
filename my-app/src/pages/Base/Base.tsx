@@ -119,16 +119,11 @@ export default function BasePage() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("Delivery Schedule");
   const [pageTitle, setPageTitle] = useState("");
-  const { logout, name, userRole, user, loading } = useAuth();
+  // Access is enforced by the ProtectedRoute wrapping this layout in routesConfig,
+  // which also redirects to "/" once the session clears on logout.
+  const { logout, name, userRole, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Route protection for every page rendered inside this layout (incl. Reports)
-  useEffect(() => {
-    if (!loading && (!user || !userRole)) {
-      navigate("/", { replace: true });
-    }
-  }, [loading, user, userRole, navigate]);
 
   useEffect(() => {
     // Use full paths for comparison as location.pathname includes the base
@@ -178,7 +173,7 @@ export default function BasePage() {
   const handleLogout = async () => {
     try {
       await logout();
-      // The route-protection effect above handles the redirect once `user` clears.
+      // ProtectedRoute handles the redirect once the session clears.
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -186,10 +181,6 @@ export default function BasePage() {
 
   // Conditionally add items based on role
   const navItems = useMemo(() => {
-    if (!userRole) {
-      return [];
-    }
-
     const items = [...BASE_NAV_ITEMS];
 
     items.push({ text: "Routes", icon: <LocalShippingIcon />, link: "/routes" });
@@ -351,7 +342,7 @@ export default function BasePage() {
             </ListItem>
           ))}
         </List>
-        <Typography sx={{ padding: "8px" }}>{`Logged in as: ${name ?? user?.email} (${userRole})`}</Typography>
+        <Typography sx={{ padding: "8px" }}>{`Logged in as: ${name ?? user?.email ?? "Unknown"} (${userRole})`}</Typography>
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
         <List sx={{ padding: "0 8px", width: "100%" }}>
           <ListItem key="Documentation" disablePadding sx={{ mb: 1 }}>

@@ -30,7 +30,11 @@ function Login() {
   const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { user, userRole, loading: authLoading } = useAuth();
+  const { user, userRole, loading: authLoading, error: authError } = useAuth();
+
+  // Credentials can be valid while the session is still rejected (no application
+  // role, or the role lookup failed), so surface whichever reason applies.
+  const displayedError = loginError ?? authError;
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -193,9 +197,9 @@ function Login() {
               </p>
             </div>
 
-            {loginError && (
+            {displayedError && (
               <p className={styles.error} role="alert">
-                {loginError.message}
+                {displayedError.message}
               </p>
             )}
             {resetPasswordMessage && <p className={styles.resetMessage}>{resetPasswordMessage}</p>}
