@@ -51,31 +51,101 @@ const AuthProbe = () => {
   );
 };
 
+const ErrorProbe = () => {
+  const { error } = useAuth();
+  return <div data-testid="auth-error">{error ? `${error.code}|${error.message}` : "no-error"}</div>;
+};
+
+const renderAuth = () =>
+  render(
+    <AuthProvider>
+      <AuthProbe />
+      <ErrorProbe />
+    </AuthProvider>
+  );
+
+const authErrorText = () => screen.getByTestId("auth-error").textContent;
+
 describe("AuthProvider", () => {
   beforeEach(() => {
     mockAuthStateCallback = undefined;
     mockSignOut.mockReset();
-    mockSignOut.mockResolvedValue(undefined);
+    // The real firebase signOut notifies onAuthStateChanged with a null user
+    // BEFORE its promise resolves. Mocking it as an inert resolve hides every
+    // interaction between the sign-out and the listener that triggered it.
+    mockSignOut.mockImplementation(async () => {
+      await mockAuthStateCallback?.(null);
+    });
     mockGetDoc.mockReset();
   });
 
   it.each([
-    ["a profile without a valid role", () => mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: "Test User" }) })],
-    ["a failed profile lookup", () => mockGetDoc.mockRejectedValue(new Error("Firestore unavailable"))],
-  ])("signs out and clears the session for %s", async (_scenario, arrangeProfile) => {
-    arrangeProfile();
-    render(
-      <AuthProvider>
-        <AuthProbe />
-      </AuthProvider>
-    );
+    [
+      "a profile without a valid role",
+      () =>
+        mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: "Test User" }) }),
+      "auth/missing-role",
+    ],
+    [
+      "a failed profile lookup",
+      () => mockGetDoc.mockRejectedValue(new Error("Firestore unavailable")),
+      "auth/profile-unavailable",
+    ],
+  ])(
+    "signs out, clears the session and reports the reason for %s",
+    async (_scenario, arrangeProfile, expectedCode) => {
+      arrangeProfile();
+      renderAuth();
+
+      await act(async () => {
+        await mockAuthStateCallback?.(firebaseUser(_scenario));
+      });
+
+      expect(mockSignOut).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("anonymous:no-name:no-role:no-token")).toBeTruthy();
+      // The sign-out re-enters the listener with a null user. The reason the
+      // session was rejected must survive that, or the login page shows nothing.
+      expect(authErrorText()).toContain(expectedCode);
+    }
+  );
+
+  it("retries a transient profile lookup before rejecting the session", async () => {
+    mockGetDoc.mockRejectedValue(new Error("Firestore unavailable"));
+    renderAuth();
 
     await act(async () => {
-      await mockAuthStateCallback?.(firebaseUser(_scenario));
+      await mockAuthStateCallback?.(firebaseUser("flaky-user"));
     });
 
-    expect(mockSignOut).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("anonymous:no-name:no-role:no-token")).toBeTruthy();
+    expect(mockGetDoc.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it("recovers when a retried profile lookup succeeds", async () => {
+    mockGetDoc
+      .mockRejectedValueOnce(new Error("Firestore unavailable"))
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ name: "Flaky User", role: "Admin" }),
+      });
+    renderAuth();
+
+    await act(async () => {
+      await mockAuthStateCallback?.(firebaseUser("flaky-user"));
+    });
+
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(screen.getByText("flaky-user:Flaky User:Admin:token")).toBeTruthy();
+    expect(authErrorText()).toBe("no-error");
+  });
+
+  it("reports no error for an ordinary sign-out", async () => {
+    renderAuth();
+
+    await act(async () => {
+      await mockAuthStateCallback?.(null);
+    });
+
+    expect(authErrorText()).toBe("no-error");
   });
 
   it("hydrates the complete session for a valid profile", async () => {
@@ -83,11 +153,7 @@ describe("AuthProvider", () => {
       exists: () => true,
       data: () => ({ name: "Valid User", role: " manager " }),
     });
-    render(
-      <AuthProvider>
-        <AuthProbe />
-      </AuthProvider>
-    );
+    renderAuth();
 
     await act(async () => {
       await mockAuthStateCallback?.(firebaseUser("valid-user"));
@@ -95,6 +161,7 @@ describe("AuthProvider", () => {
 
     expect(mockSignOut).not.toHaveBeenCalled();
     expect(screen.getByText("valid-user:Valid User:Manager:token")).toBeTruthy();
+    expect(authErrorText()).toBe("no-error");
   });
 
   it("refetches a corrected profile after an invalid role is rejected", async () => {
@@ -107,11 +174,7 @@ describe("AuthProvider", () => {
         exists: () => true,
         data: () => ({ name: "Corrected User", role: "Admin" }),
       });
-    render(
-      <AuthProvider>
-        <AuthProbe />
-      </AuthProvider>
-    );
+    renderAuth();
 
     await act(async () => {
       await mockAuthStateCallback?.(firebaseUser("corrected-user"));
@@ -121,6 +184,7 @@ describe("AuthProvider", () => {
     expect(mockGetDoc).toHaveBeenCalledTimes(2);
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(screen.getByText("corrected-user:Corrected User:Admin:token")).toBeTruthy();
+    expect(authErrorText()).toBe("no-error");
   });
 
   it("ignores an older profile lookup that completes after a newer login", async () => {
@@ -134,11 +198,7 @@ describe("AuthProvider", () => {
         exists: () => true,
         data: () => ({ name: "User B", role: "Admin" }),
       });
-    render(
-      <AuthProvider>
-        <AuthProbe />
-      </AuthProvider>
-    );
+    renderAuth();
 
     const firstAuthEvent = mockAuthStateCallback?.(firebaseUser("user-a"));
     await act(async () => {
