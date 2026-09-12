@@ -159,6 +159,7 @@ jest.mock("../../../pages/Calendar/components/useLimits", () => ({ useLimits: ()
 jest.mock("../../../components/CaseWorkerManagementModal", () => () => null);
 jest.mock("../../../pages/Profile/components/DeliveryLogForm", () => () => null);
 jest.mock("../../../pages/Profile/components/ProfileHeader", () => () => null);
+jest.mock("../../../pages/Profile/components/TefapFillDialog", () => () => null);
 jest.mock("../../../pages/Profile/Tags/TagManager", () => () => null);
 
 const emptySnapshot = { docs: [], empty: true, forEach: () => undefined };
