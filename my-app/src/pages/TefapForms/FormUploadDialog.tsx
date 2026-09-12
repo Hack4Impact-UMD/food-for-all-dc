@@ -23,12 +23,7 @@ import { useNotifications } from "../../components/NotificationProvider";
 import { buildInitialValues } from "../../utils/tefapPrefill";
 import FieldMapper from "./FieldMapper";
 import { buildFieldsFromInspection } from "./tefapMapping";
-import {
-  metaChipSx,
-  primaryButtonSx,
-  quietButtonSx,
-  secondaryButtonSx,
-} from "./tefapStyles";
+import { metaChipSx, primaryButtonSx, quietButtonSx, secondaryButtonSx } from "./tefapStyles";
 
 const DEFAULT_CERT_MONTHS = 12;
 const STEPS = ["Upload", "Map fields", "Preview & submit"];
@@ -41,11 +36,7 @@ interface FormUploadDialogProps {
   onSaved: () => void;
 }
 
-const FormUploadDialog: React.FC<FormUploadDialogProps> = ({
-  actor,
-  onStepChange,
-  onSaved,
-}) => {
+const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ actor, onStepChange, onSaved }) => {
   const { showSuccess, showError } = useNotifications();
 
   const [file, setFile] = useState<File | null>(null);
@@ -118,7 +109,10 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({
         setBytes(buffer);
         setInspection(result);
         setFields(buildFieldsFromInspection(result));
-        setName((current) => current || picked.name.replace(/\.pdf$/i, ""));
+        setName(picked.name.replace(/\.pdf$/i, ""));
+        setDescription("");
+        setExampleClient(null);
+        setPreviewUrl("");
         setStep(1);
         onStepChange(1);
       } catch (error) {
@@ -135,8 +129,14 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({
 
     setPreviewing(true);
     try {
-      const { clients } = await clientService.getAllClients(1);
-      const client = clients[0] ?? null;
+      let client: ClientProfile | null = null;
+      try {
+        const { clients } = await clientService.getAllClients(1);
+        client = clients[0] ?? null;
+      } catch {
+        // Example data is optional; a transient client read must not strand a
+        // fully mapped template before Save becomes available.
+      }
 
       const { fillPdf } = await import("../../utils/tefapPdf");
       const result = await fillPdf(bytes, fields, buildInitialValues(fields, client));
@@ -269,7 +269,11 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({
                   type="file"
                   accept="application/pdf,.pdf"
                   hidden
-                  onChange={(event) => void handleFile(event.target.files?.[0])}
+                  onChange={(event) => {
+                    const picked = event.currentTarget.files?.[0];
+                    event.currentTarget.value = "";
+                    void handleFile(picked);
+                  }}
                 />
               </Button>
               <Typography variant="caption" sx={{ color: "var(--color-text-medium-alt)" }}>
@@ -282,7 +286,7 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({
 
       {step === 1 && inspection && bytes && (
         <Box>
-        <Stack spacing={2}>
+          <Stack spacing={2}>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField
                 label="Form name"
@@ -338,22 +342,27 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({
                   diagnostic.fieldNames.length > 0 || diagnostic.code === "no-acroform-fields"
               )
               .map((diagnostic) => (
-              <Alert
-                key={diagnostic.code}
-                severity={diagnostic.code === "no-acroform-fields" ? "error" : "warning"}
-              >
-                <AlertTitle>
-                  {diagnostic.code === "shared-widgets" && "Some fields control more than one box"}
-                  {diagnostic.code === "uninformative-name" && "Some fields have unhelpful names"}
-                  {diagnostic.code === "no-acroform-fields" && "This PDF is not fillable"}
-                </AlertTitle>
-                {diagnostic.message}
-                {diagnostic.fieldNames.length > 0 && (
-                  <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
-                    {diagnostic.fieldNames.join(", ")}
-                  </Typography>
-                )}
-              </Alert>
+                <Alert
+                  key={diagnostic.code}
+                  severity={diagnostic.code === "no-acroform-fields" ? "error" : "warning"}
+                >
+                  <AlertTitle>
+                    {diagnostic.code === "shared-widgets" &&
+                      "Some fields control more than one box"}
+                    {diagnostic.code === "uninformative-name" && "Some fields have unhelpful names"}
+                    {diagnostic.code === "no-acroform-fields" && "This PDF is not fillable"}
+                  </AlertTitle>
+                  {diagnostic.code === "shared-widgets" &&
+                    `${diagnostic.fieldNames.length} field(s) control more than one box on the page.`}
+                  {diagnostic.code === "uninformative-name" &&
+                    `${diagnostic.fieldNames.length} field(s) have auto-generated names that do not say what they are.`}
+                  {diagnostic.code === "no-acroform-fields" && diagnostic.message}
+                  {diagnostic.fieldNames.length > 0 && (
+                    <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+                      {diagnostic.fieldNames.join(", ")}
+                    </Typography>
+                  )}
+                </Alert>
               ))}
 
             <FieldMapper
@@ -362,15 +371,17 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({
               fields={fields}
               onChange={setFields}
             />
-        </Stack>
+          </Stack>
         </Box>
       )}
 
       {step === 2 && (
         <Stack spacing={2}>
           <Alert severity="info">
-            Previewing the mapped form with {exampleClient?.firstName} {exampleClient?.lastName},
-            the first client returned from client-profile2. This does not change their record.
+            {exampleClient
+              ? `Previewing the mapped form with ${exampleClient.firstName ?? ""} ${exampleClient.lastName ?? ""}, the first client on file.`
+              : "Previewing the mapped form with blank example values."}{" "}
+            This does not change any client record.
           </Alert>
           <Box
             component="iframe"

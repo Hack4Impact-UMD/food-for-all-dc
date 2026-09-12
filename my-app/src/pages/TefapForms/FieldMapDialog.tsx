@@ -1,12 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
 import type {
   TefapActor,
   TefapForm,
@@ -18,6 +11,7 @@ import { useNotifications } from "../../components/NotificationProvider";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import FieldMapper from "./FieldMapper";
 import { primaryButtonSx, quietButtonSx } from "./tefapStyles";
+import { reconcileFieldsWithInspection } from "../../utils/tefapFields";
 
 interface FieldMapEditorProps {
   form: TefapForm;
@@ -69,7 +63,7 @@ const FieldMapEditor: React.FC<FieldMapEditorProps> = ({ form, actor, onBack, on
 
         setBytes(template);
         setInspection(result);
-        setFields(current.fields);
+        setFields(reconcileFieldsWithInspection(current.fields, result));
         setSubmissionCount(count);
       } catch (error) {
         if (cancelled) return;
@@ -154,7 +148,9 @@ const FieldMapEditor: React.FC<FieldMapEditorProps> = ({ form, actor, onBack, on
               onClick={() => void handleSave()}
               disabled={!inspection || saving}
               startIcon={
-                saving ? <CircularProgress size={16} sx={{ color: "var(--color-white)" }} /> : undefined
+                saving ? (
+                  <CircularProgress size={16} sx={{ color: "var(--color-white)" }} />
+                ) : undefined
               }
               sx={primaryButtonSx}
             >

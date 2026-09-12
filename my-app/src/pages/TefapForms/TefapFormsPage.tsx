@@ -11,9 +11,6 @@ import {
   IconButton,
   Paper,
   Stack,
-  Step,
-  StepLabel,
-  Stepper,
   Switch,
   Table,
   TableBody,
@@ -152,72 +149,43 @@ const TefapFormsPage: React.FC = () => {
               : "Upload a blank PDF template, map its fields, and confirm the result."}
           </Typography>
         </Box>
-        {!mappingForm && <Stack direction="row" spacing={1} alignItems="center">
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showArchived}
-                onChange={(event) => setShowArchived(event.target.checked)}
-              />
-            }
-            label="Show archived"
-          />
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<DownloadIcon />}
-            onClick={() => setDownloadOpen(true)}
-            disabled={forms.length === 0}
-            sx={secondaryButtonSx}
-          >
-            Export
-          </Button>
-        </Stack>}
+        {!mappingForm && (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showArchived}
+                  onChange={(event) => setShowArchived(event.target.checked)}
+                />
+              }
+              label="Show archived"
+            />
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<DownloadIcon />}
+              onClick={() => setDownloadOpen(true)}
+              disabled={forms.length === 0}
+              sx={secondaryButtonSx}
+            >
+              Export
+            </Button>
+          </Stack>
+        )}
       </Stack>
 
       {mappingForm ? (
-        <>
-          <Stepper
-            activeStep={1}
-            alternativeLabel
-            sx={{
-              mb: 3,
-              "& .MuiStepIcon-root.Mui-active, & .MuiStepIcon-root.Mui-completed": {
-                color: "var(--color-primary)",
-              },
-              "& .MuiStepConnector-line": {
-                borderColor: "var(--color-primary)",
-                borderTopWidth: 3,
-                opacity: 0.35,
-              },
-              "& .MuiStepConnector-root.Mui-active .MuiStepConnector-line, & .MuiStepConnector-root.Mui-completed .MuiStepConnector-line": {
-                borderColor: "var(--color-primary)",
-                opacity: 1,
-              },
-            }}
-          >
-            {["Upload", "Map fields", "Preview & submit"].map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
-          <FieldMapEditor
-            form={mappingForm}
-            actor={actor}
-            onBack={handleCloseMapping}
-            onSaved={() => {
-              handleCloseMapping();
-              void load();
-            }}
-          />
-        </>
-      ) : (
-        <FormUploadDialog
+        <FieldMapEditor
+          form={mappingForm}
           actor={actor}
-          onStepChange={setUploadStep}
-          onSaved={() => void load()}
+          onBack={handleCloseMapping}
+          onSaved={() => {
+            handleCloseMapping();
+            void load();
+          }}
         />
+      ) : (
+        <FormUploadDialog actor={actor} onStepChange={setUploadStep} onSaved={() => void load()} />
       )}
 
       {!mappingForm && uploadStep === 0 && (
@@ -225,110 +193,114 @@ const TefapFormsPage: React.FC = () => {
           <Typography variant="h6" sx={{ ...pageTitleSx, mb: 1 }}>
             Saved templates
           </Typography>
-      {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-          <LoadingIndicator />
-        </Box>
-      ) : visibleForms.length === 0 ? (
-        <Alert severity="info">
-          No TEFAP forms yet. Upload the blank PDF supplied by the state to get started.
-        </Alert>
-      ) : (
-        <TableContainer component={Paper} variant="outlined" sx={cardSx}>
-          <Table size="small">
-            <TableHead>
-              <TableRow
-                sx={{
-                  "& th": {
-                    fontWeight: 700,
-                    color: "var(--color-text-medium-alt2)",
-                    backgroundColor: "var(--color-background-green-tint)",
-                    whiteSpace: "nowrap",
-                  },
-                }}
-              >
-                <TableCell>Name</TableCell>
-                <TableCell align="right">Version</TableCell>
-                <TableCell align="right">Fields</TableCell>
-                <TableCell align="right">Pages</TableCell>
-                <TableCell align="right">Cert valid</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Updated</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {visibleForms.map((form) => (
-                <TableRow key={form.id} hover>
-                  <TableCell>
-                    <Typography
-                      variant="body2"
-                      sx={{ fontWeight: 600, color: "var(--color-text-primary)" }}
-                    >
-                      {form.name}
-                    </Typography>
-                    {form.description && (
-                      <Typography
-                        variant="caption"
-                        sx={{ color: "var(--color-text-medium-alt)", display: "block" }}
-                      >
-                        {form.description}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell align="right">{form.version}</TableCell>
-                  <TableCell align="right">{form.fields.length}</TableCell>
-                  <TableCell align="right">{form.pageCount}</TableCell>
-                  <TableCell align="right">
-                    <Chip size="small" label={`${form.certValidityMonths} mo`} sx={metaChipSx} />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={form.status}
-                      sx={statusChipSx(form.status === "active")}
-                    />
-                  </TableCell>
-                  <TableCell>{deliveryDate.toDisplayString(form.updatedAt)}</TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="View the blank form">
-                      <IconButton
-                        size="small"
-                        onClick={() => void handlePreview(form)}
-                        sx={{ color: "var(--color-primary)" }}
-                      >
-                        <VisibilityIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit the field mapping">
-                      <IconButton
-                        size="small"
-                        onClick={() => setMappingForm(form)}
-                        sx={{ color: "var(--color-primary)" }}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={form.status === "active" ? "Archive" : "Restore"}>
-                      <IconButton
-                        size="small"
-                        onClick={() => void handleStatus(form)}
-                        sx={{ color: "var(--color-text-medium-alt)" }}
-                      >
-                        {form.status === "active" ? (
-                          <ArchiveIcon fontSize="small" />
-                        ) : (
-                          <UnarchiveIcon fontSize="small" />
+          {loading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+              <LoadingIndicator />
+            </Box>
+          ) : visibleForms.length === 0 ? (
+            <Alert severity="info">
+              No TEFAP forms yet. Upload the blank PDF supplied by the state to get started.
+            </Alert>
+          ) : (
+            <TableContainer component={Paper} variant="outlined" sx={cardSx}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow
+                    sx={{
+                      "& th": {
+                        fontWeight: 700,
+                        color: "var(--color-text-medium-alt2)",
+                        backgroundColor: "var(--color-background-green-tint)",
+                        whiteSpace: "nowrap",
+                      },
+                    }}
+                  >
+                    <TableCell>Name</TableCell>
+                    <TableCell align="right">Version</TableCell>
+                    <TableCell align="right">Fields</TableCell>
+                    <TableCell align="right">Pages</TableCell>
+                    <TableCell align="right">Cert valid</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Updated</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {visibleForms.map((form) => (
+                    <TableRow key={form.id} hover>
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 600, color: "var(--color-text-primary)" }}
+                        >
+                          {form.name}
+                        </Typography>
+                        {form.description && (
+                          <Typography
+                            variant="caption"
+                            sx={{ color: "var(--color-text-medium-alt)", display: "block" }}
+                          >
+                            {form.description}
+                          </Typography>
                         )}
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+                      </TableCell>
+                      <TableCell align="right">{form.version}</TableCell>
+                      <TableCell align="right">{form.fields.length}</TableCell>
+                      <TableCell align="right">{form.pageCount}</TableCell>
+                      <TableCell align="right">
+                        <Chip
+                          size="small"
+                          label={`${form.certValidityMonths} mo`}
+                          sx={metaChipSx}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={form.status}
+                          sx={statusChipSx(form.status === "active")}
+                        />
+                      </TableCell>
+                      <TableCell>{deliveryDate.toDisplayString(form.updatedAt)}</TableCell>
+                      <TableCell align="right">
+                        <Tooltip title="View the blank form">
+                          <IconButton
+                            size="small"
+                            onClick={() => void handlePreview(form)}
+                            sx={{ color: "var(--color-primary)" }}
+                          >
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit the field mapping">
+                          <IconButton
+                            size="small"
+                            onClick={() => setMappingForm(form)}
+                            sx={{ color: "var(--color-primary)" }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={form.status === "active" ? "Archive" : "Restore"}>
+                          <IconButton
+                            size="small"
+                            onClick={() => void handleStatus(form)}
+                            sx={{ color: "var(--color-text-medium-alt)" }}
+                          >
+                            {form.status === "active" ? (
+                              <ArchiveIcon fontSize="small" />
+                            ) : (
+                              <UnarchiveIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </Box>
       )}
 

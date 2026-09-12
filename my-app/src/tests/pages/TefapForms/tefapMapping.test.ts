@@ -171,9 +171,16 @@ describe("buildFieldsFromInspection", () => {
         acro("Household receives SNAP", [{ x: 400, y: 100, width: 10 }], {
           type: "checkbox",
         }),
-        acro("undefined", [{ x: 430, y: 120 }, { x: 430, y: 100 }], {
-          type: "checkbox",
-        }),
+        acro(
+          "undefined",
+          [
+            { x: 430, y: 120 },
+            { x: 430, y: 100 },
+          ],
+          {
+            type: "checkbox",
+          }
+        ),
       ])
     );
 
@@ -202,9 +209,16 @@ describe("buildFieldsFromInspection", () => {
         acro("Household receives TANF", [{ x: 400, y: 120, width: 10 }], {
           type: "checkbox",
         }),
-        acro("undefined", [{ x: 430, y: 120 }, { x: 430, y: 100 }], {
-          type: "checkbox",
-        }),
+        acro(
+          "undefined",
+          [
+            { x: 430, y: 120 },
+            { x: 430, y: 100 },
+          ],
+          {
+            type: "checkbox",
+          }
+        ),
       ])
     );
 
@@ -214,6 +228,20 @@ describe("buildFieldsFromInspection", () => {
       radioOptions: undefined,
     });
     expect(fields.find((field) => field.label === "undefined")?.type).toBe("checkbox");
+  });
+
+  it("does not absorb an unrelated unnamed checkbox on the same row", () => {
+    const fields = buildFieldsFromInspection(
+      inspectionOf([
+        acro("Household receives TANF", [{ x: 400, y: 120, width: 10 }], {
+          type: "checkbox",
+        }),
+        acro("Field 1", [{ x: 430, y: 120 }], { type: "checkbox" }),
+      ])
+    );
+
+    expect(fields).toHaveLength(2);
+    expect(fields.map((entry) => entry.type)).toEqual(["checkbox", "checkbox"]);
   });
 
   it("skips fields of a type that cannot be filled", () => {

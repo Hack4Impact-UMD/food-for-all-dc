@@ -99,8 +99,10 @@ const fieldTypeFor = (acro: TefapAcroField): TefapFormField["type"] => {
   return "text";
 };
 
-const isUninformativeCheckboxName = (name: string): boolean =>
+const isPotentialNoFieldName = (name: string): boolean =>
   /^(undefined|untitled|field|check\s?box|button|no)[\s_-]*\d*$/i.test(name.trim());
+
+const isExplicitNoFieldName = (name: string): boolean => /^no[\s_-]*\d*$/i.test(name.trim());
 
 const overlayPlacement = (rect: TefapRect): TefapFormField["placement"] => ({
   kind: "overlay",
@@ -132,9 +134,7 @@ const rectsOf = (field: TefapFormField, inspection: TefapPdfInspection): TefapRe
       const placement = option.placement;
       if (placement.kind === "overlay") return [{ ...placement }];
       return (
-        inspection.acroFields.find(
-          (entry) => entry.name === placement.pdfFieldName
-        )?.widgets ?? []
+        inspection.acroFields.find((entry) => entry.name === placement.pdfFieldName)?.widgets ?? []
       );
     });
   }
@@ -168,90 +168,91 @@ export const buildFieldsFromInspection = (inspection: TefapPdfInspection): Tefap
     .sort((left, right) => readingOrder(left.anchor, right.anchor));
 
   const availableNoWidgets = entries
-    .filter(
-      ({ acro }) => acro.type === "checkbox" && isUninformativeCheckboxName(acro.name)
-    )
+    .filter(({ acro }) => acro.type === "checkbox" && isPotentialNoFieldName(acro.name))
     .flatMap(({ acro }) => acro.widgets.map((widget) => ({ acro, widget })));
-  const claimedNoWidgets = new Set<TefapRect>();
   const noWidgetByYesField = new Map<TefapAcroField, TefapRect>();
+  const fullyPairedNoFields = new Set<TefapAcroField>();
+  const claimedYesFields = new Set<TefapAcroField>();
+  const namedCheckboxes = entries
+    .map(({ acro }) => acro)
+    .filter(
+      (acro) =>
+        acro.type === "checkbox" && !isPotentialNoFieldName(acro.name) && acro.widgets.length === 1
+    );
 
-  for (const { acro } of entries) {
-    if (
-      acro.type !== "checkbox" ||
-      isUninformativeCheckboxName(acro.name) ||
-      acro.widgets.length !== 1
-    ) {
-      continue;
-    }
-
-    const yes = acro.widgets[0];
-    const match = availableNoWidgets
-      .filter(({ widget }) => {
-        const sameRow = Math.abs(widget.y - yes.y) <= Math.max(4, yes.height, widget.height);
-        const horizontalGap = widget.x - (yes.x + yes.width);
-        return (
-          !claimedNoWidgets.has(widget) &&
-          widget.page === yes.page &&
-          sameRow &&
-          horizontalGap >= 0 &&
-          horizontalGap <= 80
-        );
-      })
-      .sort((left, right) => left.widget.x - right.widget.x)[0];
-
-    if (match) {
-      claimedNoWidgets.add(match.widget);
-      noWidgetByYesField.set(acro, match.widget);
-    }
-  }
-
-  const fullyPairedNoFields = new Set(
-    availableNoWidgets
-      .map(({ acro }) => acro)
-      .filter((acro) => acro.widgets.every((widget) => claimedNoWidgets.has(widget)))
+  const noFields = Array.from(new Set(availableNoWidgets.map(({ acro }) => acro))).sort(
+    (left, right) => right.widgets.length - left.widgets.length
   );
 
-  for (const [yesField, noWidget] of noWidgetByYesField) {
-    const noField = availableNoWidgets.find(({ widget }) => widget === noWidget)?.acro;
-    if (!noField || !fullyPairedNoFields.has(noField)) {
-      noWidgetByYesField.delete(yesField);
+  for (const noField of noFields) {
+    const proposed = new Map<TefapAcroField, TefapRect>();
+
+    for (const noWidget of noField.widgets) {
+      const match = namedCheckboxes
+        .filter((yesField) => !claimedYesFields.has(yesField) && !proposed.has(yesField))
+        .map((yesField) => ({ yesField, widget: yesField.widgets[0] }))
+        .filter(({ widget }) => {
+          const sameRow =
+            Math.abs(widget.y - noWidget.y) <= Math.max(4, widget.height, noWidget.height);
+          const horizontalGap = noWidget.x - (widget.x + widget.width);
+          return (
+            widget.page === noWidget.page && sameRow && horizontalGap >= 0 && horizontalGap <= 80
+          );
+        })
+        .sort((left, right) => right.widget.x - left.widget.x)[0];
+
+      if (match) proposed.set(match.yesField, noWidget);
     }
+
+    const complete = proposed.size === noField.widgets.length;
+    const safeSinglePair =
+      noField.widgets.length > 1 ||
+      (isExplicitNoFieldName(noField.name) &&
+        Array.from(proposed.keys()).every((yesField) => /\byes\b/i.test(yesField.name)));
+
+    if (!complete || !safeSinglePair) continue;
+
+    fullyPairedNoFields.add(noField);
+    proposed.forEach((noWidget, yesField) => {
+      claimedYesFields.add(yesField);
+      noWidgetByYesField.set(yesField, noWidget);
+    });
   }
 
   return entries
     .filter(({ acro }) => !fullyPairedNoFields.has(acro))
     .map(({ acro }, index) => {
-    const savedValue = typeof acro.currentValue === "string" ? acro.currentValue.trim() : "";
-    const suggested = suggestClientKey(acro.name);
-    const noWidget = noWidgetByYesField.get(acro);
+      const savedValue = typeof acro.currentValue === "string" ? acro.currentValue.trim() : "";
+      const suggested = suggestClientKey(acro.name);
+      const noWidget = noWidgetByYesField.get(acro);
 
-    return {
-      key: `f${index + 1}_${normalize(acro.name).slice(0, 24) || "field"}`,
-      label: acro.name,
-      type: noWidget ? "radio" : fieldTypeFor(acro),
-      options: noWidget ? ["Yes", "No"] : acro.type === "radio" ? acro.options : undefined,
-      radioOptions: noWidget
-        ? [
-            {
-              value: "Yes",
-              placement: { kind: "acroform", pdfFieldName: acro.name },
-            },
-            { value: "No", placement: overlayPlacement(noWidget) },
-          ]
-        : undefined,
-      required: false,
-      placement: { kind: "acroform", pdfFieldName: acro.name },
-      // A value already stored in the template is the author's own default and
-      // is almost always wanted, so it wins over a guessed client binding.
-      prefill: savedValue
-        ? { source: "static", staticValue: savedValue }
-        : suggested
-          ? { source: "client", clientKey: suggested }
-          : { source: "none" },
-      order: index,
-      hidden: false,
-      readOnly: false,
-    };
+      return {
+        key: `f${index + 1}_${normalize(acro.name).slice(0, 24) || "field"}`,
+        label: acro.name,
+        type: noWidget ? "radio" : fieldTypeFor(acro),
+        options: noWidget ? ["Yes", "No"] : acro.type === "radio" ? acro.options : undefined,
+        radioOptions: noWidget
+          ? [
+              {
+                value: "Yes",
+                placement: { kind: "acroform", pdfFieldName: acro.name },
+              },
+              { value: "No", placement: overlayPlacement(noWidget) },
+            ]
+          : undefined,
+        required: false,
+        placement: { kind: "acroform", pdfFieldName: acro.name },
+        // A value already stored in the template is the author's own default and
+        // is almost always wanted, so it wins over a guessed client binding.
+        prefill: savedValue
+          ? { source: "static", staticValue: savedValue }
+          : suggested
+            ? { source: "client", clientKey: suggested }
+            : { source: "none" },
+        order: index,
+        hidden: false,
+        readOnly: false,
+      };
     });
 };
 
@@ -276,4 +277,3 @@ export const diagnosticFieldNames = (
   inspection: TefapPdfInspection,
   code: TefapPdfInspection["diagnostics"][number]["code"]
 ): string[] => inspection.diagnostics.find((entry) => entry.code === code)?.fieldNames ?? [];
-

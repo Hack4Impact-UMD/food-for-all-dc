@@ -1,14 +1,17 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   applyExclusivity,
+  collectRadioControlValues,
   emptyValueFor,
   hasValue,
+  isTefapTruthy,
+  reconcileFieldsWithInspection,
   toValueList,
   toValueMap,
   validateRequired,
   visibleFields,
 } from "../../utils/tefapFields";
-import type { TefapFormField } from "../../types/tefap-types";
+import type { TefapFormField, TefapPdfInspection } from "../../types/tefap-types";
 
 const field = (key: string, overrides: Partial<TefapFormField> = {}): TefapFormField => ({
   key,
@@ -25,6 +28,84 @@ describe("emptyValueFor", () => {
   it("uses false for checkboxes and an empty string for everything else", () => {
     expect(emptyValueFor(field("box", { type: "checkbox" }))).toBe(false);
     expect(emptyValueFor(field("name"))).toBe("");
+  });
+});
+
+describe("isTefapTruthy", () => {
+  it("accepts affirmative static checkbox values", () => {
+    expect(isTefapTruthy(true)).toBe(true);
+    expect(isTefapTruthy("Yes")).toBe(true);
+    expect(isTefapTruthy("checked")).toBe(true);
+  });
+
+  it("rejects negative static checkbox values", () => {
+    expect(isTefapTruthy(false)).toBe(false);
+    expect(isTefapTruthy("No")).toBe(false);
+    expect(isTefapTruthy("off")).toBe(false);
+  });
+});
+
+describe("collectRadioControlValues", () => {
+  it("captures every field changed by a mirrored PDF checkbox group", () => {
+    expect(
+      collectRadioControlValues([
+        { fieldKey: "tanf", option: "No", checked: true },
+        { fieldKey: "snap", option: "No", checked: true },
+      ])
+    ).toEqual(
+      new Map([
+        ["tanf", "No"],
+        ["snap", "No"],
+      ])
+    );
+  });
+
+  it("clears a field when none of its native options remains checked", () => {
+    expect(
+      collectRadioControlValues([
+        { fieldKey: "tanf", option: "Yes", checked: false },
+        { fieldKey: "tanf", option: "No", checked: false },
+      ]).get("tanf")
+    ).toBe("");
+  });
+});
+
+describe("reconcileFieldsWithInspection", () => {
+  it("upgrades a legacy checkbox mapping that targets a native radio group", () => {
+    const legacy = field("assistance", {
+      type: "checkbox",
+      placement: { kind: "acroform", pdfFieldName: "Assistance" },
+      exclusiveWith: ["other"],
+    });
+    const inspection: TefapPdfInspection = {
+      pageCount: 1,
+      pageSizes: [{ page: 1, width: 612, height: 792 }],
+      diagnostics: [],
+      acroFields: [
+        {
+          name: "Assistance",
+          type: "radio",
+          options: ["Yes", "No"],
+          widgets: [],
+        },
+      ],
+    };
+
+    expect(reconcileFieldsWithInspection([legacy], inspection)).toEqual([
+      expect.objectContaining({ type: "radio", options: ["Yes", "No"], exclusiveWith: undefined }),
+    ]);
+  });
+
+  it("leaves genuine checkbox mappings unchanged", () => {
+    const checkbox = field("consent", { type: "checkbox" });
+    const inspection: TefapPdfInspection = {
+      pageCount: 1,
+      pageSizes: [{ page: 1, width: 612, height: 792 }],
+      diagnostics: [],
+      acroFields: [{ name: "consent", type: "checkbox", widgets: [] }],
+    };
+
+    expect(reconcileFieldsWithInspection([checkbox], inspection)[0]).toBe(checkbox);
   });
 });
 

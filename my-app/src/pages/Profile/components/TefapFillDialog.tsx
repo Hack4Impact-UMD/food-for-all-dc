@@ -38,6 +38,7 @@ import {
 import { buildInitialValues } from "../../../utils/tefapPrefill";
 import {
   applyExclusivity,
+  reconcileFieldsWithInspection,
   toValueList,
   toValueMap,
   validateRequired,
@@ -56,7 +57,30 @@ import {
   secondaryButtonSx,
   selectableCardSx,
 } from "../../TefapForms/tefapStyles";
-import TefapPdfForm from "./TefapPdfForm";
+
+const TefapPdfForm = React.lazy(async () => {
+  const PromiseConstructor = Promise as typeof Promise & {
+    withResolvers?: <T>() => {
+      promise: Promise<T>;
+      resolve: (value: T | PromiseLike<T>) => void;
+      reject: (reason?: unknown) => void;
+    };
+  };
+
+  if (!PromiseConstructor.withResolvers) {
+    PromiseConstructor.withResolvers = <T,>() => {
+      let resolve!: (value: T | PromiseLike<T>) => void;
+      let reject!: (reason?: unknown) => void;
+      const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+      });
+      return { promise, resolve, reject };
+    };
+  }
+
+  return import("./TefapPdfForm");
+});
 
 interface TefapFillDialogProps {
   open: boolean;
@@ -186,9 +210,12 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
         const bytes = await tefapFormService.getTemplateBytes(form);
         const { inspectPdf } = await import("../../../utils/tefapPdf");
         const nextInspection = await inspectPdf(bytes);
+        const compatibleFields = reconcileFieldsWithInspection(form.fields, nextInspection);
 
         setTemplateBytes(bytes);
         setInspection(nextInspection);
+        setSelectedForm({ ...form, fields: compatibleFields });
+        setValues(toValueMap(buildInitialValues(compatibleFields, client)));
       } catch (error) {
         showError(error instanceof Error ? error.message : "Failed to open the TEFAP form.");
         return;
@@ -196,8 +223,6 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
         setLoading(false);
       }
 
-      setSelectedForm(form);
-      setValues(toValueMap(buildInitialValues(form.fields, client)));
       setCertExpiresOn(defaultCertExpiry(form.certValidityMonths));
       setIssues([]);
       setStep(1);
@@ -479,13 +504,19 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
               </Alert>
             )}
 
-            <TefapPdfForm
-              bytes={templateBytes}
-              inspection={inspection}
-              fields={selectedForm.fields}
-              values={values}
-              onChange={setValue}
-            />
+            <React.Suspense
+              fallback={
+                <Typography sx={{ py: 4, textAlign: "center" }}>Loading form...</Typography>
+              }
+            >
+              <TefapPdfForm
+                bytes={templateBytes}
+                inspection={inspection}
+                fields={selectedForm.fields}
+                values={values}
+                onChange={setValue}
+              />
+            </React.Suspense>
           </Stack>
         )}
 

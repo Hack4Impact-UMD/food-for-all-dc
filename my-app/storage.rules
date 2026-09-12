@@ -16,18 +16,16 @@ service firebase.storage {
     }
 
     // Role lives on the user's Firestore document, so Storage has to reach
-    // across to read it. Costs one Firestore read per storage operation.
+    // across to read it once per storage operation.
     function isAdmin() {
-      return isSignedIn()
-        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role is string
-        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role.lower() == 'admin';
+      let role = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+      return isSignedIn() && role is string && role in ['Admin', 'admin'];
     }
 
     function canReadTefapTemplates() {
-      return isSignedIn()
-        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role is string
-        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role.lower()
-          in ['admin', 'manager', 'clientintake', 'client intake'];
+      let role = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+      return isSignedIn() && role is string
+        && role in ['Admin', 'admin', 'Manager', 'manager', 'ClientIntake', 'clientintake', 'Client Intake', 'client intake'];
     }
 
     // Allow read access to configuration files ONLY for authenticated users

@@ -316,6 +316,16 @@ describe("fillPdf", () => {
     expect(warnings[0].message).toContain("cannot say which option to mark");
   });
 
+  it("uses checkbox string truthiness consistently", async () => {
+    const template = await buildFillablePdf();
+    const fields = [acroField("yes", "Household receives Medicaid Yes", { type: "checkbox" })];
+
+    const checked = await fillPdf(template, fields, [{ field: "yes", value: "Yes" }]);
+    const unchecked = await fillPdf(template, fields, [{ field: "yes", value: "No" }]);
+
+    expect(checked.bytes.length).toBeGreaterThan(unchecked.bytes.length);
+  });
+
   it("warns instead of throwing when the template no longer has a mapped field", async () => {
     const template = await buildFillablePdf();
     const fields = [acroField("gone", "Field That Was Removed")];

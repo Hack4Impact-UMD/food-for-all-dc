@@ -1,5 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Box, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Checkbox,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
+  Radio,
+  RadioGroup,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { Document, Page, pdfjs } from "react-pdf";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import "react-pdf/dist/Page/AnnotationLayer.css";
@@ -8,6 +20,7 @@ import type {
   TefapFormField,
   TefapPdfInspection,
 } from "../../../types/tefap-types";
+import { collectRadioControlValues, isTefapTruthy } from "../../../utils/tefapFields";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -34,6 +47,23 @@ interface NativeTarget {
   field: TefapFormField;
   option?: string;
 }
+
+const annotationControl = (
+  container: HTMLElement,
+  id: string
+): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null => {
+  const annotationElement = container.querySelector<HTMLElement>(
+    `[data-element-id="${CSS.escape(id)}"]`
+  );
+  if (
+    annotationElement instanceof HTMLInputElement ||
+    annotationElement instanceof HTMLTextAreaElement ||
+    annotationElement instanceof HTMLSelectElement
+  ) {
+    return annotationElement;
+  }
+  return annotationElement?.querySelector("input, textarea, select") ?? null;
+};
 
 const rectMatchesPlacement = (
   annotation: NativeAnnotation,
@@ -115,10 +145,11 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
 
     for (const [id, annotation] of annotationsRef.current) {
       const target = targetForAnnotation(annotation, fieldsRef.current);
-      const element = container.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      const annotationElement = container.querySelector<HTMLElement>(
         `[data-element-id="${CSS.escape(id)}"]`
       );
-      const section = element?.closest<HTMLElement>("section");
+      const element = annotationControl(container, id);
+      const section = annotationElement?.closest<HTMLElement>("section");
 
       if (!target) {
         if (section) section.hidden = true;
@@ -130,7 +161,11 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
       if (!element) continue;
 
       const readOnly = target.field.readOnly === true;
-      if (element instanceof HTMLInputElement && element.type !== "checkbox" && element.type !== "radio") {
+      if (
+        element instanceof HTMLInputElement &&
+        element.type !== "checkbox" &&
+        element.type !== "radio"
+      ) {
         element.readOnly = readOnly;
       } else if (element instanceof HTMLTextAreaElement) {
         element.readOnly = readOnly;
@@ -166,32 +201,58 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
         const option = target.option ?? annotation.buttonValue;
         document.annotationStorage.setValue(id, { value: value === option });
       } else if (target.field.type === "checkbox") {
-        document.annotationStorage.setValue(id, { value: value === true });
+        document.annotationStorage.setValue(id, {
+          value: value !== undefined && isTefapTruthy(value),
+        });
       } else {
         document.annotationStorage.setValue(id, { value: String(value ?? "") });
       }
     }
   }, []);
 
-  const handleDocumentLoad = useCallback(async (document: PDFDocumentProxy) => {
-    documentRef.current = document;
-    setAnnotationsReady(false);
+  const handleDocumentLoad = useCallback(
+    async (document: PDFDocumentProxy) => {
+      documentRef.current = document;
+      setAnnotationsReady(false);
 
-    const pages = await Promise.all(
-      Array.from({ length: document.numPages }, async (_, index) => {
-        const pageNumber = index + 1;
-        const page = await document.getPage(pageNumber);
-        const annotations = (await page.getAnnotations({ intent: "display" })) as NativeAnnotation[];
-        return annotations.map((annotation) => ({ ...annotation, page: pageNumber }));
-      })
-    );
+      const pages = await Promise.all(
+        Array.from({ length: document.numPages }, async (_, index) => {
+          const pageNumber = index + 1;
+          const page = await document.getPage(pageNumber);
+          const annotations = (await page.getAnnotations({
+            intent: "display",
+          })) as NativeAnnotation[];
+          return annotations.map((annotation) => ({ ...annotation, page: pageNumber }));
+        })
+      );
 
-    annotationsRef.current = new Map(
-      pages.flat().filter((annotation) => annotation.id).map((annotation) => [annotation.id, annotation])
-    );
-    seedAnnotationStorage();
-    setAnnotationsReady(true);
-  }, [seedAnnotationStorage]);
+      annotationsRef.current = new Map(
+        pages
+          .flat()
+          .filter((annotation) => annotation.id)
+          .map((annotation) => [annotation.id, annotation])
+      );
+      seedAnnotationStorage();
+      setAnnotationsReady(true);
+    },
+    [seedAnnotationStorage]
+  );
+
+  const fallbackFields = useMemo(() => {
+    if (!annotationsReady) return [];
+    const targets = Array.from(annotationsRef.current.values())
+      .map((annotation) => targetForAnnotation(annotation, fields))
+      .filter((target): target is NativeTarget => Boolean(target));
+
+    return fields.filter((field) => {
+      if (field.hidden) return false;
+      const fieldTargets = targets.filter((target) => target.field.key === field.key);
+      if (field.type !== "radio") return fieldTargets.length === 0;
+
+      const options = field.radioOptions?.map((option) => option.value) ?? field.options ?? [];
+      return options.some((option) => !fieldTargets.some((target) => target.option === option));
+    });
+  }, [annotationsReady, fields]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -199,11 +260,17 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
 
     const handleNativeInput = (event: Event) => {
       const element = event.target;
-      if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) {
+      if (
+        !(
+          element instanceof HTMLInputElement ||
+          element instanceof HTMLTextAreaElement ||
+          element instanceof HTMLSelectElement
+        )
+      ) {
         return;
       }
 
-      const id = element.dataset.elementId;
+      const id = element.closest<HTMLElement>("[data-element-id]")?.dataset.elementId;
       const annotation = id ? annotationsRef.current.get(id) : undefined;
       if (!annotation) return;
 
@@ -211,19 +278,25 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
       if (!target || target.field.hidden || target.field.readOnly) return;
 
       if (target.field.type === "radio") {
-        if (!(element instanceof HTMLInputElement) || !element.checked) return;
-        const option = target.option ?? annotation.buttonValue ?? element.value;
-        onChangeRef.current(target.field.key, option);
+        if (!(element instanceof HTMLInputElement)) return;
 
-        for (const [otherId, otherAnnotation] of annotationsRef.current) {
-          const otherTarget = targetForAnnotation(otherAnnotation, fieldsRef.current);
-          if (otherTarget?.field.key !== target.field.key || otherId === id) continue;
-          const otherElement = container.querySelector<HTMLInputElement>(
-            `[data-element-id="${CSS.escape(otherId)}"]`
-          );
-          if (otherElement) otherElement.checked = false;
-          documentRef.current?.annotationStorage.setValue(otherId, { value: false });
-        }
+        const nextValues = collectRadioControlValues(
+          Array.from(annotationsRef.current).flatMap(([radioId, radioAnnotation]) => {
+            const radioTarget = targetForAnnotation(radioAnnotation, fieldsRef.current);
+            if (radioTarget?.field.type !== "radio") return [];
+            const radioElement = annotationControl(container, radioId);
+            if (!(radioElement instanceof HTMLInputElement)) return [];
+            return [
+              {
+                fieldKey: radioTarget.field.key,
+                option: radioTarget.option ?? radioAnnotation.buttonValue ?? radioElement.value,
+                checked: radioElement.checked,
+              },
+            ];
+          })
+        );
+
+        nextValues.forEach((value, key) => onChangeRef.current(key, value));
       } else if (target.field.type === "checkbox" && element instanceof HTMLInputElement) {
         onChangeRef.current(target.field.key, element.checked);
       } else {
@@ -290,6 +363,70 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
           </Box>
         )}
       </Document>
+
+      {fallbackFields.length > 0 && (
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          <Alert severity="warning">
+            Some mapped fields are not available as controls inside this PDF. Complete them below.
+          </Alert>
+          {fallbackFields.map((field) => {
+            const value = values.get(field.key);
+            if (field.type === "radio") {
+              const options =
+                field.radioOptions?.map((option) => option.value) ?? field.options ?? [];
+              return (
+                <FormControl key={field.key} required={field.required} disabled={field.readOnly}>
+                  <FormLabel>{field.label}</FormLabel>
+                  <RadioGroup
+                    row
+                    value={typeof value === "string" ? value : ""}
+                    onChange={(event) => onChange(field.key, event.target.value)}
+                  >
+                    {options.map((option) => (
+                      <FormControlLabel
+                        key={option}
+                        value={option}
+                        control={<Radio />}
+                        label={option}
+                      />
+                    ))}
+                  </RadioGroup>
+                </FormControl>
+              );
+            }
+
+            if (field.type === "checkbox") {
+              return (
+                <FormControlLabel
+                  key={field.key}
+                  control={
+                    <Checkbox
+                      checked={value !== undefined && isTefapTruthy(value)}
+                      onChange={(event) => onChange(field.key, event.target.checked)}
+                      disabled={field.readOnly}
+                    />
+                  }
+                  label={field.label}
+                />
+              );
+            }
+
+            return (
+              <TextField
+                key={field.key}
+                label={field.label}
+                value={String(value ?? "")}
+                onChange={(event) => onChange(field.key, event.target.value)}
+                required={field.required}
+                disabled={field.readOnly}
+                multiline={field.type === "multiline"}
+                minRows={field.type === "multiline" ? 3 : undefined}
+                type={field.type === "number" ? "number" : "text"}
+              />
+            );
+          })}
+        </Stack>
+      )}
     </Box>
   );
 };

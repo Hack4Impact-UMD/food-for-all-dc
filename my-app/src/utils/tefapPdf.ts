@@ -21,6 +21,7 @@ import type {
   TefapTextAlign,
 } from "../types/tefap-types";
 import { ServiceError } from "./serviceError";
+import { isTefapTruthy } from "./tefapFields";
 
 type PdfLib = typeof import("pdf-lib");
 
@@ -223,12 +224,6 @@ export const inspectPdf = async (bytes: Uint8Array): Promise<TefapPdfInspection>
 const asText = (value: string | boolean): string => {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return value;
-};
-
-const isTruthy = (value: string | boolean): boolean => {
-  if (typeof value === "boolean") return value;
-  const normalized = value.trim().toLowerCase();
-  return normalized !== "" && !["false", "no", "n", "0", "off", "unchecked"].includes(normalized);
 };
 
 /**
@@ -465,7 +460,7 @@ export const fillPdf = async (
           const selection = asText(raw);
           if (selection) target.select(selection);
         } else if (targetType === "checkbox") {
-          if (!isTruthy(raw)) continue;
+          if (!isTefapTruthy(raw)) continue;
 
           const marks = widgetRects(target);
           if (marks.length > 1) {
@@ -551,7 +546,7 @@ export const fillPdf = async (
     }
 
     if (field.type === "checkbox") {
-      if (isTruthy(raw)) {
+      if (isTefapTruthy(raw)) {
         pendingMarks.push({ pageIndex, rect: placement });
       }
       continue;
