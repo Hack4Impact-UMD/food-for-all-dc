@@ -11,6 +11,9 @@ import {
   IconButton,
   Paper,
   Stack,
+  Step,
+  StepLabel,
+  Stepper,
   Switch,
   Table,
   TableBody,
@@ -34,7 +37,7 @@ import { useNotifications } from "../../components/NotificationProvider";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { deliveryDate } from "../../utils/deliveryDate";
 import FormUploadDialog from "./FormUploadDialog";
-import FieldMapDialog from "./FieldMapDialog";
+import FieldMapEditor from "./FieldMapDialog";
 import BulkDownloadDialog from "./BulkDownloadDialog";
 import {
   cardSx,
@@ -112,6 +115,10 @@ const TefapFormsPage: React.FC = () => {
     setPreviewUrl("");
   }, []);
 
+  const handleCloseMapping = useCallback(() => {
+    setMappingForm(null);
+  }, []);
+
   const handleStatus = useCallback(
     async (form: TefapForm) => {
       const next = form.status === "active" ? "archived" : "active";
@@ -137,13 +144,15 @@ const TefapFormsPage: React.FC = () => {
       >
         <Box>
           <Typography variant="h5" sx={pageTitleSx}>
-            Upload TEFAP Template
+            {mappingForm ? `Edit field mapping - ${mappingForm.name}` : "Upload TEFAP Template"}
           </Typography>
           <Typography variant="body2" sx={pageSubtitleSx}>
-            Upload a blank PDF template, map its fields, and confirm the result.
+            {mappingForm
+              ? "Update the fields used by staff when completing this template."
+              : "Upload a blank PDF template, map its fields, and confirm the result."}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
+        {!mappingForm && <Stack direction="row" spacing={1} alignItems="center">
           <FormControlLabel
             control={
               <Switch
@@ -163,16 +172,55 @@ const TefapFormsPage: React.FC = () => {
           >
             Export
           </Button>
-        </Stack>
+        </Stack>}
       </Stack>
 
-      <FormUploadDialog
-        actor={actor}
-        onStepChange={setUploadStep}
-        onSaved={() => void load()}
-      />
+      {mappingForm ? (
+        <>
+          <Stepper
+            activeStep={1}
+            alternativeLabel
+            sx={{
+              mb: 3,
+              "& .MuiStepIcon-root.Mui-active, & .MuiStepIcon-root.Mui-completed": {
+                color: "var(--color-primary)",
+              },
+              "& .MuiStepConnector-line": {
+                borderColor: "var(--color-primary)",
+                borderTopWidth: 3,
+                opacity: 0.35,
+              },
+              "& .MuiStepConnector-root.Mui-active .MuiStepConnector-line, & .MuiStepConnector-root.Mui-completed .MuiStepConnector-line": {
+                borderColor: "var(--color-primary)",
+                opacity: 1,
+              },
+            }}
+          >
+            {["Upload", "Map fields", "Preview & submit"].map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+          <FieldMapEditor
+            form={mappingForm}
+            actor={actor}
+            onBack={handleCloseMapping}
+            onSaved={() => {
+              handleCloseMapping();
+              void load();
+            }}
+          />
+        </>
+      ) : (
+        <FormUploadDialog
+          actor={actor}
+          onStepChange={setUploadStep}
+          onSaved={() => void load()}
+        />
+      )}
 
-      {uploadStep === 0 && (
+      {!mappingForm && uploadStep === 0 && (
         <Box sx={{ mt: 4 }}>
           <Typography variant="h6" sx={{ ...pageTitleSx, mb: 1 }}>
             Saved templates
@@ -288,16 +336,6 @@ const TefapFormsPage: React.FC = () => {
         open={downloadOpen}
         forms={forms}
         onClose={() => setDownloadOpen(false)}
-      />
-
-      <FieldMapDialog
-        form={mappingForm}
-        actor={actor}
-        onClose={() => setMappingForm(null)}
-        onSaved={() => {
-          setMappingForm(null);
-          void load();
-        }}
       />
 
       <Dialog open={Boolean(previewForm)} onClose={handleClosePreview} maxWidth="md" fullWidth>
