@@ -133,6 +133,7 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
         element.disabled = readOnly;
       }
       element.setAttribute("aria-readonly", String(readOnly));
+      element.dataset.tefapReadOnly = String(readOnly);
     }
   }, []);
 
@@ -233,7 +234,21 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
   }, []);
 
   return (
-    <Box ref={containerRef} sx={{ width: "100%" }}>
+    <Box
+      ref={containerRef}
+      sx={{
+        width: "100%",
+        "& .annotationLayer .textWidgetAnnotation [data-tefap-read-only]": {
+          clipPath: "inset(0 0 28% 0)",
+        },
+        "& .annotationLayer [data-tefap-read-only='true']": {
+          background: "rgba(224, 224, 224, 0.82) !important",
+          borderColor: "transparent !important",
+          color: "var(--color-text-medium-alt2) !important",
+          cursor: "not-allowed !important",
+        },
+      }}
+    >
       <Document
         file={pdfData}
         onLoadSuccess={handleDocumentLoad}
