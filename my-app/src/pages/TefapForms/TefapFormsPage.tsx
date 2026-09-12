@@ -21,7 +21,6 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
 import DownloadIcon from "@mui/icons-material/Download";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import UnarchiveIcon from "@mui/icons-material/Unarchive";
@@ -55,7 +54,7 @@ const TefapFormsPage: React.FC = () => {
   const [forms, setForms] = useState<TefapForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
-  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadStep, setUploadStep] = useState(0);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [previewForm, setPreviewForm] = useState<TefapForm | null>(null);
   const [mappingForm, setMappingForm] = useState<TefapForm | null>(null);
@@ -138,11 +137,10 @@ const TefapFormsPage: React.FC = () => {
       >
         <Box>
           <Typography variant="h5" sx={pageTitleSx}>
-            TEFAP Forms
+            Upload TEFAP Template
           </Typography>
           <Typography variant="body2" sx={pageSubtitleSx}>
-            Blank templates and their field mappings. Completed forms are rebuilt from these on
-            demand, so only the blank PDFs are stored.
+            Upload a blank PDF template, map its fields, and confirm the result.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">
@@ -165,18 +163,20 @@ const TefapFormsPage: React.FC = () => {
           >
             Export
           </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => setUploadOpen(true)}
-            sx={primaryButtonSx}
-          >
-            Upload
-          </Button>
         </Stack>
       </Stack>
 
+      <FormUploadDialog
+        actor={actor}
+        onStepChange={setUploadStep}
+        onSaved={() => void load()}
+      />
+
+      {uploadStep === 0 && (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" sx={{ ...pageTitleSx, mb: 1 }}>
+            Saved templates
+          </Typography>
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
           <LoadingIndicator />
@@ -281,21 +281,13 @@ const TefapFormsPage: React.FC = () => {
           </Table>
         </TableContainer>
       )}
+        </Box>
+      )}
 
       <BulkDownloadDialog
         open={downloadOpen}
         forms={forms}
         onClose={() => setDownloadOpen(false)}
-      />
-
-      <FormUploadDialog
-        open={uploadOpen}
-        actor={actor}
-        onClose={() => setUploadOpen(false)}
-        onSaved={() => {
-          setUploadOpen(false);
-          void load();
-        }}
       />
 
       <FieldMapDialog

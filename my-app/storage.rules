@@ -19,7 +19,8 @@ service firebase.storage {
     // across to read it. Costs one Firestore read per storage operation.
     function isAdmin() {
       return isSignedIn()
-        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role is string
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role.lower() == 'admin';
     }
 
     // Allow read access to configuration files ONLY for authenticated users
@@ -39,15 +40,14 @@ service firebase.storage {
       allow read: if isSignedIn();
     }
 
-    // Blank TEFAP templates. Any signed-in user may read one, because filling a
-    // form for a client requires downloading the template. Only admins may add
-    // or replace one.
+    // Blank TEFAP templates are restricted to admins for both reading and
+    // writing. Other authenticated roles cannot list, download, or upload them.
     //
     // Templates are never overwritten in practice - the form service writes each
     // upload under a fresh form id - so a successful write here is always a new
     // template rather than a change to one that past submissions regenerate from.
     match /tefap-forms/{formId}/{fileName} {
-      allow read: if isSignedIn();
+      allow read: if isAdmin();
       allow write: if isAdmin()
         && request.resource.size < 15 * 1024 * 1024
         && request.resource.contentType == 'application/pdf';

@@ -34,6 +34,36 @@ const mockForm: TefapForm = {
       prefill: { source: "none" },
       order: 0,
     },
+    {
+      key: "f2",
+      label: "Distribution site",
+      type: "text",
+      required: false,
+      placement: { kind: "acroform", pdfFieldName: "site" },
+      prefill: { source: "static", staticValue: "Food For All DC" },
+      readOnly: true,
+      order: 1,
+    },
+    {
+      key: "f3",
+      label: "Internal code",
+      type: "text",
+      required: false,
+      placement: { kind: "acroform", pdfFieldName: "code" },
+      prefill: { source: "static", staticValue: "TEFAP" },
+      hidden: true,
+      order: 2,
+    },
+    {
+      key: "f4",
+      label: "Household receives TANF",
+      type: "radio",
+      options: ["Yes", "No"],
+      required: false,
+      placement: { kind: "acroform", pdfFieldName: "tanf" },
+      prefill: { source: "none" },
+      order: 3,
+    },
   ],
   createdAt: new Date("2026-01-01T00:00:00Z"),
   createdBy: { uid: "u1", name: "Admin", email: "admin@example.test" },
@@ -57,6 +87,50 @@ jest.mock("../../../services/client-service", () => ({
 
 jest.mock("../../../utils/tefapPdf", () => ({
   fillPdf: async () => ({ bytes: new Uint8Array([1, 2, 3]), warnings: [] }),
+  inspectPdf: async () => ({
+    pageCount: 1,
+    pageSizes: [{ page: 1, width: 612, height: 792 }],
+    acroFields: [],
+    diagnostics: [],
+  }),
+}));
+
+jest.mock("../../../pages/Profile/components/TefapPdfForm", () => ({
+  __esModule: true,
+  default: ({ fields, values, onChange }: any) => (
+    <div>
+      {fields
+        .filter((field: any) => !field.hidden)
+        .map((field: any) =>
+          field.type === "radio" ? (
+            <div key={field.key}>
+              {(field.options ?? []).map((option: string) => (
+                <label key={option}>
+                  <input
+                    type="radio"
+                    name={field.key}
+                    aria-label={option}
+                    checked={values.get(field.key) === option}
+                    onChange={() => onChange(field.key, option)}
+                  />
+                  {option}
+                </label>
+              ))}
+            </div>
+          ) : (
+            <label key={field.key}>
+              {field.label}
+              <input
+                aria-label={field.label}
+                disabled={field.readOnly}
+                value={String(values.get(field.key) ?? "")}
+                onChange={(event) => onChange(field.key, event.target.value)}
+              />
+            </label>
+          )
+        )}
+    </div>
+  ),
 }));
 
 jest.mock("../../../services/tefap-form-service", () => ({
@@ -95,7 +169,9 @@ const renderDialog = () =>
 const reachReviewStep = async (answer: string) => {
   fireEvent.click(await screen.findByText("TEFAP 2026"));
 
-  fireEvent.change(await screen.findByLabelText(/Household size/), { target: { value: answer } });
+  fireEvent.change(await screen.findByLabelText(/Household size/, {}, { timeout: 3000 }), {
+    target: { value: answer },
+  });
 
   fireEvent.click(screen.getByRole("button", { name: "Review" }));
   await screen.findByRole("button", { name: "Save" });
@@ -115,6 +191,35 @@ describe("TefapFillDialog partial save", () => {
     URL.revokeObjectURL = jest.fn();
     mockCreateSubmission.mockResolvedValue({ id: "sub-1" });
     mockUpdateClient.mockResolvedValue(undefined);
+  });
+
+  it("shows editable and read-only fields to staff but omits hidden fields", async () => {
+    renderDialog();
+    fireEvent.click(await screen.findByText("TEFAP 2026"));
+
+    expect(
+      (await screen.findByLabelText(/Household size/, {}, { timeout: 3000 }) as HTMLInputElement)
+        .disabled
+    ).toBe(false);
+    expect((screen.getByLabelText("Distribution site") as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByDisplayValue("Food For All DC")).toBeTruthy();
+    expect(screen.queryByLabelText("Internal code")).toBeNull();
+  });
+
+  it("allows only one option in a PDF radio field", async () => {
+    renderDialog();
+    fireEvent.click(await screen.findByText("TEFAP 2026"));
+
+    const yes = (await screen.findByLabelText("Yes", {}, { timeout: 3000 })) as HTMLInputElement;
+    const no = screen.getByLabelText("No") as HTMLInputElement;
+
+    fireEvent.click(yes);
+    expect(yes.checked).toBe(true);
+    expect(no.checked).toBe(false);
+
+    fireEvent.click(no);
+    expect(yes.checked).toBe(false);
+    expect(no.checked).toBe(true);
   });
 
   it("locks the answers once the submission is recorded and the profile write fails", async () => {
@@ -160,7 +265,12 @@ describe("TefapFillDialog partial save", () => {
       values: { field: string; value: string | boolean }[];
       certExpiresOn: string;
     };
-    expect(recorded.values).toEqual([{ field: "f1", value: "4" }]);
+    expect(recorded.values).toEqual([
+      { field: "f1", value: "4" },
+      { field: "f2", value: "Food For All DC" },
+      { field: "f3", value: "TEFAP" },
+      { field: "f4", value: "" },
+    ]);
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(onSubmitted).toHaveBeenCalledWith(recorded.certExpiresOn));

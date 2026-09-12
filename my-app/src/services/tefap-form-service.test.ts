@@ -173,6 +173,31 @@ describe("createForm", () => {
     expect(written.status).toBe("active");
   });
 
+  it("omits undefined optional field properties before writing to Firestore", async () => {
+    const mappedField = {
+      ...field("choice"),
+      type: "radio" as const,
+      options: ["Yes", "No"],
+      radioOptions: undefined,
+      prefill: { source: "none" as const, clientKey: undefined },
+    };
+
+    await tefapFormService.createForm(
+      {
+        name: "FY26",
+        file: fakeFile(),
+        fileName: "f.pdf",
+        pageCount: 1,
+        fields: [mappedField],
+      },
+      actor
+    );
+
+    const written = mockSetDoc.mock.calls[0][1] as { fields: Record<string, unknown>[] };
+    expect(written.fields[0]).not.toHaveProperty("radioOptions");
+    expect(written.fields[0].prefill).toEqual({ source: "none" });
+  });
+
   // An uploaded PDF that no document points at is invisible and unreclaimable.
   it("deletes the uploaded PDF when the document write fails", async () => {
     mockSetDoc.mockRejectedValue(new Error("permission denied"));
@@ -196,6 +221,19 @@ describe("createForm", () => {
         actor
       )
     ).rejects.toThrow("Failed to upload the PDF.");
+
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it("explains when Storage rules reject the upload", async () => {
+    mockUploadBytes.mockRejectedValue({ code: "storage/unauthorized" });
+
+    await expect(
+      tefapFormService.createForm(
+        { name: "FY26", file: fakeFile(), fileName: "f.pdf", pageCount: 1, fields: [] },
+        actor
+      )
+    ).rejects.toThrow("Confirm that the TEFAP Storage rules are deployed");
 
     expect(mockSetDoc).not.toHaveBeenCalled();
   });

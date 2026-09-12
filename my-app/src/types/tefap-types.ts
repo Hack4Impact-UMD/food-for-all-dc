@@ -33,7 +33,12 @@ export type TefapFieldPlacement =
 
 export type TefapTextAlign = "left" | "center" | "right";
 
-export type TefapFieldType = "text" | "multiline" | "date" | "number" | "checkbox";
+export type TefapFieldType = "text" | "multiline" | "date" | "number" | "checkbox" | "radio";
+
+export interface TefapRadioOption {
+  value: string;
+  placement: TefapFieldPlacement;
+}
 
 /** Where a field's initial value comes from when a filler opens the form. */
 export type TefapPrefillSource = "none" | "static" | "client";
@@ -57,11 +62,17 @@ export interface TefapFormField {
   /** Admin-supplied human-readable name. PDF field names are often wrong. */
   label: string;
   type: TefapFieldType;
+  /** Choices defined by the PDF for a single-choice radio field. */
+  options?: string[];
+  /** Exact targets when separate PDF checkboxes form one Yes/No choice. */
+  radioOptions?: TefapRadioOption[];
   required: boolean;
   placement: TefapFieldPlacement;
   prefill: TefapPrefill;
   /** Mapped but not shown to the filler (for example an unused proxy block). */
   hidden?: boolean;
+  /** Shown to staff with its prefilled value, but cannot be edited. */
+  readOnly?: boolean;
   /** Display order in the fill dialog. */
   order: number;
   /**

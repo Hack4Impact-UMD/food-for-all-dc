@@ -1,38 +1,51 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   AlertTitle,
+  Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Chip,
+  Paper,
   Stack,
+  Step,
+  StepLabel,
+  Stepper,
   TextField,
   Typography,
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import type { TefapActor, TefapFormField, TefapPdfInspection } from "../../types/tefap-types";
+import type { ClientProfile } from "../../types/client-types";
 import { MAX_TEMPLATE_BYTES, tefapFormService } from "../../services/tefap-form-service";
+import { clientService } from "../../services/client-service";
 import { useNotifications } from "../../components/NotificationProvider";
+import { buildInitialValues } from "../../utils/tefapPrefill";
 import FieldMapper from "./FieldMapper";
 import { buildFieldsFromInspection } from "./tefapMapping";
-import { metaChipSx, primaryButtonSx, quietButtonSx } from "./tefapStyles";
-
-interface FormUploadDialogProps {
-  open: boolean;
-  actor: TefapActor;
-  onClose: () => void;
-  onSaved: () => void;
-}
+import {
+  metaChipSx,
+  primaryButtonSx,
+  quietButtonSx,
+  secondaryButtonSx,
+} from "./tefapStyles";
 
 const DEFAULT_CERT_MONTHS = 12;
+const STEPS = ["Upload", "Map fields", "Preview & submit"];
 
 const megabytes = (bytes: number): string => `${Math.round((bytes / 1024 / 1024) * 10) / 10}MB`;
 
-const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClose, onSaved }) => {
+interface FormUploadDialogProps {
+  actor: TefapActor;
+  onStepChange: (step: number) => void;
+  onSaved: () => void;
+}
+
+const FormUploadDialog: React.FC<FormUploadDialogProps> = ({
+  actor,
+  onStepChange,
+  onSaved,
+}) => {
   const { showSuccess, showError } = useNotifications();
 
   const [file, setFile] = useState<File | null>(null);
@@ -43,7 +56,13 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClos
   const [description, setDescription] = useState("");
   const [certMonths, setCertMonths] = useState(String(DEFAULT_CERT_MONTHS));
   const [inspecting, setInspecting] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [step, setStep] = useState(0);
+  const [previewing, setPreviewing] = useState(false);
+  const [exampleClient, setExampleClient] = useState<ClientProfile | null>(null);
+  const [previewUrl, setPreviewUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const previewUrlRef = useRef("");
 
   const reset = useCallback(() => {
     setFile(null);
@@ -54,14 +73,25 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClos
     setDescription("");
     setCertMonths(String(DEFAULT_CERT_MONTHS));
     setInspecting(false);
+    setDragging(false);
+    setStep(0);
+    onStepChange(0);
+    setPreviewing(false);
+    setExampleClient(null);
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = "";
+    }
+    setPreviewUrl("");
     setSaving(false);
-  }, []);
+  }, [onStepChange]);
 
-  const handleClose = useCallback(() => {
-    if (saving) return;
-    reset();
-    onClose();
-  }, [onClose, reset, saving]);
+  useEffect(
+    () => () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    },
+    []
+  );
 
   const handleFile = useCallback(
     async (picked: File | undefined) => {
@@ -89,14 +119,43 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClos
         setInspection(result);
         setFields(buildFieldsFromInspection(result));
         setName((current) => current || picked.name.replace(/\.pdf$/i, ""));
+        setStep(1);
+        onStepChange(1);
       } catch (error) {
         showError(error instanceof Error ? error.message : "That file could not be read as a PDF.");
       } finally {
         setInspecting(false);
       }
     },
-    [showError]
+    [onStepChange, showError]
   );
+
+  const handlePreview = useCallback(async () => {
+    if (!bytes) return;
+
+    setPreviewing(true);
+    try {
+      const { clients } = await clientService.getAllClients(1);
+      const client = clients[0];
+      if (!client) {
+        throw new Error("No clients are available in client-profile2 for the example preview.");
+      }
+
+      const { fillPdf } = await import("../../utils/tefapPdf");
+      const result = await fillPdf(bytes, fields, buildInitialValues(fields, client));
+      const url = URL.createObjectURL(new Blob([result.bytes], { type: "application/pdf" }));
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = url;
+      setPreviewUrl(url);
+      setExampleClient(client);
+      setStep(2);
+      onStepChange(2);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : "Failed to build the example preview.");
+    } finally {
+      setPreviewing(false);
+    }
+  }, [bytes, fields, onStepChange, showError]);
 
   const handleSave = useCallback(async () => {
     if (!file || !bytes || !inspection) return;
@@ -140,43 +199,93 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClos
   ]);
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="xl" fullWidth>
-      <DialogTitle sx={{ fontWeight: 600, color: "var(--color-primary)" }}>
-        Upload a TEFAP form
-      </DialogTitle>
-      <DialogContent dividers>
-        {!inspection && (
-          <Stack spacing={2} alignItems="flex-start" sx={{ py: 2 }}>
-            <Typography variant="body2" sx={{ color: "var(--color-text-secondary)" }}>
-              Choose the blank PDF supplied by the state. Its fillable fields are detected
-              automatically so you can give each one a name.
-            </Typography>
-            <Button
-              variant="contained"
-              component="label"
-              startIcon={
-                inspecting ? (
-                  <CircularProgress size={16} sx={{ color: "var(--color-white)" }} />
-                ) : (
-                  <UploadFileIcon />
-                )
-              }
-              disabled={inspecting}
-              sx={primaryButtonSx}
-            >
-              {inspecting ? "Reading..." : "Choose PDF"}
-              <input
-                type="file"
-                accept="application/pdf,.pdf"
-                hidden
-                onChange={(event) => void handleFile(event.target.files?.[0])}
-              />
-            </Button>
-          </Stack>
-        )}
+    <Box>
+      <Stepper
+        activeStep={step}
+        alternativeLabel
+        sx={{
+          mb: 3,
+          "& .MuiStepIcon-root.Mui-active, & .MuiStepIcon-root.Mui-completed": {
+            color: "var(--color-primary)",
+          },
+          "& .MuiStepConnector-line": {
+            borderColor: "var(--color-primary)",
+            borderTopWidth: 3,
+            opacity: 0.35,
+          },
+          "& .MuiStepConnector-root.Mui-active .MuiStepConnector-line, & .MuiStepConnector-root.Mui-completed .MuiStepConnector-line":
+            {
+              borderColor: "var(--color-primary)",
+              opacity: 1,
+            },
+        }}
+      >
+        {STEPS.map((label) => (
+          <Step key={label}>
+            <StepLabel>{label}</StepLabel>
+          </Step>
+        ))}
+      </Stepper>
 
-        {inspection && bytes && (
-          <Stack spacing={2}>
+      {step === 0 && (
+        <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+            Template file
+          </Typography>
+          <Box
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setDragging(true);
+            }}
+            onDragOver={(event) => event.preventDefault()}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDragging(false);
+              void handleFile(event.dataTransfer.files[0]);
+            }}
+            sx={{
+              minHeight: 220,
+              border: "1px dashed var(--color-primary)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "center",
+              backgroundColor: dragging
+                ? "var(--color-background-green-light)"
+                : "var(--color-background-green-tint)",
+              transition: "background-color 0.15s ease",
+            }}
+          >
+            <Stack spacing={1} alignItems="center">
+              <UploadFileIcon sx={{ fontSize: 42, color: "var(--color-primary)" }} />
+              <Typography variant="body2">Drag and drop a PDF file here</Typography>
+              <Typography variant="caption">or</Typography>
+              <Button
+                variant="contained"
+                component="label"
+                disabled={inspecting}
+                sx={primaryButtonSx}
+              >
+                {inspecting ? "Reading..." : "Choose file"}
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  hidden
+                  onChange={(event) => void handleFile(event.target.files?.[0])}
+                />
+              </Button>
+              <Typography variant="caption" sx={{ color: "var(--color-text-medium-alt)" }}>
+                Only PDF files are accepted.
+              </Typography>
+            </Stack>
+          </Box>
+        </Paper>
+      )}
+
+      {step === 1 && inspection && bytes && (
+        <Box>
+        <Stack spacing={2}>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField
                 label="Form name"
@@ -211,7 +320,27 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClos
               />
             </Stack>
 
-            {inspection.diagnostics.map((diagnostic) => (
+            {inspection.diagnostics
+              .map((diagnostic) => ({
+                ...diagnostic,
+                fieldNames: diagnostic.fieldNames.filter((fieldName) =>
+                  fields.some(
+                    (field) =>
+                      (field.placement.kind === "acroform" &&
+                        field.placement.pdfFieldName === fieldName) ||
+                      field.radioOptions?.some(
+                        (option) =>
+                          option.placement.kind === "acroform" &&
+                          option.placement.pdfFieldName === fieldName
+                      )
+                  )
+                ),
+              }))
+              .filter(
+                (diagnostic) =>
+                  diagnostic.fieldNames.length > 0 || diagnostic.code === "no-acroform-fields"
+              )
+              .map((diagnostic) => (
               <Alert
                 key={diagnostic.code}
                 severity={diagnostic.code === "no-acroform-fields" ? "error" : "warning"}
@@ -228,7 +357,7 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClos
                   </Typography>
                 )}
               </Alert>
-            ))}
+              ))}
 
             <FieldMapper
               templateBytes={bytes}
@@ -236,26 +365,75 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClos
               fields={fields}
               onChange={setFields}
             />
+        </Stack>
+        </Box>
+      )}
+
+      {step === 2 && (
+        <Stack spacing={2}>
+          <Alert severity="info">
+            Previewing the mapped form with {exampleClient?.firstName} {exampleClient?.lastName},
+            the first client returned from client-profile2. This does not change their record.
+          </Alert>
+          <Box
+            component="iframe"
+            title="Filled TEFAP template preview"
+            src={previewUrl}
+            sx={{ width: "100%", height: "70vh", border: "1px solid var(--color-border-medium)" }}
+          />
+        </Stack>
+      )}
+
+      <Stack direction="row" justifyContent="space-between" spacing={1} sx={{ mt: 3 }}>
+        {step > 0 && (
+          <Button
+            onClick={() => {
+              const previousStep = step - 1;
+              setStep(previousStep);
+              onStepChange(previousStep);
+            }}
+            disabled={saving || previewing}
+            sx={quietButtonSx}
+          >
+            Back
+          </Button>
+        )}
+        {step === 1 && (
+          <Button
+            variant="contained"
+            onClick={() => void handlePreview()}
+            disabled={!name.trim() || previewing}
+            startIcon={previewing ? <CircularProgress size={16} color="inherit" /> : undefined}
+            sx={primaryButtonSx}
+          >
+            {previewing ? "Building preview..." : "Preview"}
+          </Button>
+        )}
+        {step === 2 && (
+          <Stack direction="row" spacing={1}>
+            <Button
+              onClick={() => {
+                setStep(1);
+                onStepChange(1);
+              }}
+              disabled={saving}
+              sx={secondaryButtonSx}
+            >
+              Edit mapping
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => void handleSave()}
+              disabled={!name.trim() || saving}
+              startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
+              sx={primaryButtonSx}
+            >
+              {saving ? "Saving..." : "Save template"}
+            </Button>
           </Stack>
         )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} disabled={saving} sx={quietButtonSx}>
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          onClick={() => void handleSave()}
-          disabled={!inspection || !name.trim() || saving}
-          startIcon={
-            saving ? <CircularProgress size={16} sx={{ color: "var(--color-white)" }} /> : undefined
-          }
-          sx={primaryButtonSx}
-        >
-          {saving ? "Saving..." : "Save"}
-        </Button>
-      </DialogActions>
-    </Dialog>
+      </Stack>
+    </Box>
   );
 };
 

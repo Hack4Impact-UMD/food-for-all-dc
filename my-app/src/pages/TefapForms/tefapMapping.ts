@@ -94,9 +94,24 @@ export const suggestClientKey = (label: string): string | undefined => {
 };
 
 const fieldTypeFor = (acro: TefapAcroField): TefapFormField["type"] => {
-  if (acro.type === "checkbox" || acro.type === "radio") return "checkbox";
+  if (acro.type === "checkbox") return "checkbox";
+  if (acro.type === "radio") return "radio";
   return "text";
 };
+
+const isUninformativeCheckboxName = (name: string): boolean =>
+  /^(undefined|untitled|field|check\s?box|button|no)[\s_-]*\d*$/i.test(name.trim());
+
+const overlayPlacement = (rect: TefapRect): TefapFormField["placement"] => ({
+  kind: "overlay",
+  page: rect.page,
+  x: rect.x,
+  y: rect.y,
+  width: rect.width,
+  height: rect.height,
+  fontSize: Math.max(Math.min(rect.width, rect.height), 6),
+  align: "center",
+});
 
 /** Top-left-first reading order, so the list matches how the page scans. */
 const readingOrder = (left: TefapRect, right: TefapRect): number => {
@@ -112,6 +127,18 @@ const readingOrder = (left: TefapRect, right: TefapRect): number => {
  * the admin sees one number sitting on two unrelated rows.
  */
 const rectsOf = (field: TefapFormField, inspection: TefapPdfInspection): TefapRect[] => {
+  if (field.radioOptions) {
+    return field.radioOptions.flatMap((option) => {
+      const placement = option.placement;
+      if (placement.kind === "overlay") return [{ ...placement }];
+      return (
+        inspection.acroFields.find(
+          (entry) => entry.name === placement.pdfFieldName
+        )?.widgets ?? []
+      );
+    });
+  }
+
   if (field.placement.kind === "overlay") {
     return [{ ...field.placement }];
   }
@@ -140,14 +167,71 @@ export const buildFieldsFromInspection = (inspection: TefapPdfInspection): Tefap
     }))
     .sort((left, right) => readingOrder(left.anchor, right.anchor));
 
-  return entries.map(({ acro }, index) => {
+  const availableNoWidgets = entries
+    .filter(
+      ({ acro }) => acro.type === "checkbox" && isUninformativeCheckboxName(acro.name)
+    )
+    .flatMap(({ acro }) => acro.widgets.map((widget) => ({ acro, widget })));
+  const claimedNoWidgets = new Set<TefapRect>();
+  const noWidgetByYesField = new Map<TefapAcroField, TefapRect>();
+
+  for (const { acro } of entries) {
+    if (
+      acro.type !== "checkbox" ||
+      isUninformativeCheckboxName(acro.name) ||
+      acro.widgets.length !== 1
+    ) {
+      continue;
+    }
+
+    const yes = acro.widgets[0];
+    const match = availableNoWidgets
+      .filter(({ widget }) => {
+        const sameRow = Math.abs(widget.y - yes.y) <= Math.max(4, yes.height, widget.height);
+        const horizontalGap = widget.x - (yes.x + yes.width);
+        return (
+          !claimedNoWidgets.has(widget) &&
+          widget.page === yes.page &&
+          sameRow &&
+          horizontalGap >= 0 &&
+          horizontalGap <= 80
+        );
+      })
+      .sort((left, right) => left.widget.x - right.widget.x)[0];
+
+    if (match) {
+      claimedNoWidgets.add(match.widget);
+      noWidgetByYesField.set(acro, match.widget);
+    }
+  }
+
+  const fullyPairedNoFields = new Set(
+    availableNoWidgets
+      .map(({ acro }) => acro)
+      .filter((acro) => acro.widgets.every((widget) => claimedNoWidgets.has(widget)))
+  );
+
+  return entries
+    .filter(({ acro }) => !fullyPairedNoFields.has(acro))
+    .map(({ acro }, index) => {
     const savedValue = typeof acro.currentValue === "string" ? acro.currentValue.trim() : "";
     const suggested = suggestClientKey(acro.name);
+    const noWidget = noWidgetByYesField.get(acro);
 
     return {
       key: `f${index + 1}_${normalize(acro.name).slice(0, 24) || "field"}`,
       label: acro.name,
-      type: fieldTypeFor(acro),
+      type: noWidget ? "radio" : fieldTypeFor(acro),
+      options: noWidget ? ["Yes", "No"] : acro.type === "radio" ? acro.options : undefined,
+      radioOptions: noWidget
+        ? [
+            {
+              value: "Yes",
+              placement: { kind: "acroform", pdfFieldName: acro.name },
+            },
+            { value: "No", placement: overlayPlacement(noWidget) },
+          ]
+        : undefined,
       required: false,
       placement: { kind: "acroform", pdfFieldName: acro.name },
       // A value already stored in the template is the author's own default and
@@ -159,60 +243,10 @@ export const buildFieldsFromInspection = (inspection: TefapPdfInspection): Tefap
           : { source: "none" },
       order: index,
       hidden: false,
+      readOnly: false,
     };
-  });
+    });
 };
-
-/**
- * Replaces one field that controls several boxes with one overlay field per
- * box, each anchored to its own rectangle.
- *
- * This is the escape hatch for a defect real forms ship with: when a single
- * PDF field owns several widgets they share one value, so a radio group spanning
- * two unrelated rows can only ever hold one of them. Splitting gives each box
- * an independent answer. The rectangles come from the PDF itself, so this stays
- * generic across releases.
- */
-export const splitSharedField = (
-  fields: TefapFormField[],
-  fieldKey: string,
-  inspection: TefapPdfInspection
-): TefapFormField[] => {
-  const index = fields.findIndex((field) => field.key === fieldKey);
-  if (index === -1) return fields;
-
-  const target = fields[index];
-  if (target.placement.kind !== "acroform") return fields;
-
-  const acro = inspection.acroFields.find(
-    (entry) => entry.name === (target.placement as { pdfFieldName: string }).pdfFieldName
-  );
-  if (!acro || acro.widgets.length < 2) return fields;
-
-  const replacements: TefapFormField[] = acro.widgets.map((widget, widgetIndex) => ({
-    ...target,
-    key: `${target.key}__box${widgetIndex + 1}`,
-    label: `${target.label} (box ${widgetIndex + 1})`,
-    type: "checkbox",
-    placement: {
-      kind: "overlay",
-      page: widget.page,
-      x: widget.x,
-      y: widget.y,
-      width: widget.width,
-      height: widget.height,
-      fontSize: Math.max(Math.min(widget.width, widget.height), 6),
-      align: "center",
-    },
-  }));
-
-  const next = [...fields.slice(0, index), ...replacements, ...fields.slice(index + 1)];
-  return reindex(next);
-};
-
-/** Renumbers order to match array position. */
-export const reindex = (fields: TefapFormField[]): TefapFormField[] =>
-  fields.map((field, index) => ({ ...field, order: index }));
 
 /** Boxes to draw on the preview, numbered to match the mapping list. */
 export const annotationsForFields = (
@@ -236,16 +270,3 @@ export const diagnosticFieldNames = (
   code: TefapPdfInspection["diagnostics"][number]["code"]
 ): string[] => inspection.diagnostics.find((entry) => entry.code === code)?.fieldNames ?? [];
 
-/** True when this field is one the PDF cannot drive independently. */
-export const isSharedWidgetField = (
-  field: TefapFormField,
-  inspection: TefapPdfInspection
-): boolean => {
-  if (field.placement.kind !== "acroform") return false;
-
-  const acro = inspection.acroFields.find(
-    (entry) => entry.name === (field.placement as { pdfFieldName: string }).pdfFieldName
-  );
-
-  return (acro?.widgets.length ?? 0) > 1;
-};

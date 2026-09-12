@@ -41,7 +41,7 @@ const ok = (s) => s>=200 && s<300;
 const results = [
   ['Admin uploads a PDF template',            ok(await upload(admin, P, pdf)),                    true],
   ['Non-admin (ClientIntake) upload denied',  ok(await upload(intake,'tefap-forms/x/f.pdf', pdf)),false],
-  ['Signed-in non-admin can read a template', ok(await read(intake, P)),                          true],
+  ['Signed-in non-admin cannot read template',ok(await read(intake, P)),                          false],
   ['Anonymous read denied',                   ok(await read(null, P)),                            false],
   ['Admin upload of a non-PDF denied',        ok(await upload(admin,'tefap-forms/y/a.txt',Buffer.from('hi'),'text/plain')), false],
   ['Write outside tefap-forms denied',        ok(await upload(admin,'somewhere/else.pdf', pdf)),  false],

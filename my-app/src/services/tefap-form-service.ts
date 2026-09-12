@@ -36,6 +36,41 @@ export const MAX_TEMPLATE_BYTES = 15 * 1024 * 1024;
 
 const DEFAULT_CERT_VALIDITY_MONTHS = 12;
 
+const fieldsForStorage = (fields: TefapFormField[]): TefapFormField[] =>
+  JSON.parse(JSON.stringify(fields)) as TefapFormField[];
+
+const formatTemplateUploadError = (error: unknown): ServiceError => {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String((error as { code?: unknown }).code ?? "")
+      : "";
+
+  if (code === "storage/unauthorized") {
+    return new ServiceError(
+      "Firebase Storage denied the upload. Confirm that the TEFAP Storage rules are deployed " +
+        'and your user record has the Admin role.',
+      code,
+      error
+    );
+  }
+  if (code === "storage/bucket-not-found") {
+    return new ServiceError(
+      "The configured Firebase Storage bucket was not found.",
+      code,
+      error
+    );
+  }
+  if (code === "storage/retry-limit-exceeded") {
+    return new ServiceError(
+      "The PDF upload timed out. Check your connection and try again.",
+      code,
+      error
+    );
+  }
+
+  return formatServiceError(error, "Failed to upload the PDF.");
+};
+
 export interface CreateTefapFormInput {
   name: string;
   description?: string;
@@ -152,7 +187,7 @@ class TefapFormService {
         contentType: "application/pdf",
       });
     } catch (error) {
-      throw formatServiceError(error, "Failed to upload the PDF.");
+      throw formatTemplateUploadError(error);
     }
 
     const record = {
@@ -167,7 +202,7 @@ class TefapFormService {
       effectiveFrom: input.effectiveFrom ?? "",
       effectiveTo: input.effectiveTo ?? "",
       certValidityMonths: input.certValidityMonths ?? DEFAULT_CERT_VALIDITY_MONTHS,
-      fields: input.fields,
+      fields: fieldsForStorage(input.fields),
       createdAt: serverTimestamp(),
       createdBy: actor,
       updatedAt: serverTimestamp(),
@@ -208,7 +243,7 @@ class TefapFormService {
     if (submissionCount === 0) {
       try {
         await updateDoc(doc(this.db, this.formsCollection, formId), {
-          fields,
+          fields: fieldsForStorage(fields),
           updatedAt: serverTimestamp(),
           updatedBy: actor,
         });
@@ -237,7 +272,7 @@ class TefapFormService {
       effectiveFrom: existing.effectiveFrom ?? "",
       effectiveTo: existing.effectiveTo ?? "",
       certValidityMonths: existing.certValidityMonths,
-      fields,
+      fields: fieldsForStorage(fields),
       createdAt: serverTimestamp(),
       createdBy: actor,
       updatedAt: serverTimestamp(),

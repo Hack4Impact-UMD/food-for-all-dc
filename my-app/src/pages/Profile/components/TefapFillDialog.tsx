@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -11,7 +10,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  FormControlLabel,
   IconButton,
   Tooltip,
   Paper,
@@ -28,6 +26,7 @@ import type {
   TefapActor,
   TefapFieldValue,
   TefapForm,
+  TefapPdfInspection,
   TefapSubmission,
 } from "../../../types/tefap-types";
 import type { ClientProfile } from "../../../types/client-types";
@@ -42,7 +41,6 @@ import {
   toValueList,
   toValueMap,
   validateRequired,
-  visibleFields,
 } from "../../../utils/tefapFields";
 import { useAuth } from "../../../auth/AuthProvider";
 import { useNotifications } from "../../../components/NotificationProvider";
@@ -58,6 +56,7 @@ import {
   secondaryButtonSx,
   selectableCardSx,
 } from "../../TefapForms/tefapStyles";
+import TefapPdfForm from "./TefapPdfForm";
 
 interface TefapFillDialogProps {
   open: boolean;
@@ -94,6 +93,8 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
   const [forms, setForms] = useState<TefapForm[]>([]);
   const [history, setHistory] = useState<TefapSubmission[]>([]);
   const [selectedForm, setSelectedForm] = useState<TefapForm | null>(null);
+  const [templateBytes, setTemplateBytes] = useState<Uint8Array | null>(null);
+  const [inspection, setInspection] = useState<TefapPdfInspection | null>(null);
   const [values, setValues] = useState<Map<string, string | boolean>>(new Map());
   const [certExpiresOn, setCertExpiresOn] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
@@ -124,14 +125,11 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
     [name, user]
   );
 
-  const fields = useMemo(
-    () => (selectedForm ? visibleFields(selectedForm.fields) : []),
-    [selectedForm]
-  );
-
   const reset = useCallback(() => {
     setStep(0);
     setSelectedForm(null);
+    setTemplateBytes(null);
+    setInspection(null);
     setValues(new Map());
     setCertExpiresOn("");
     setPreviewUrl("");
@@ -182,14 +180,29 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
   );
 
   const handleChooseForm = useCallback(
-    (form: TefapForm) => {
+    async (form: TefapForm) => {
+      setLoading(true);
+      try {
+        const bytes = await tefapFormService.getTemplateBytes(form);
+        const { inspectPdf } = await import("../../../utils/tefapPdf");
+        const nextInspection = await inspectPdf(bytes);
+
+        setTemplateBytes(bytes);
+        setInspection(nextInspection);
+      } catch (error) {
+        showError(error instanceof Error ? error.message : "Failed to open the TEFAP form.");
+        return;
+      } finally {
+        setLoading(false);
+      }
+
       setSelectedForm(form);
       setValues(toValueMap(buildInitialValues(form.fields, client)));
       setCertExpiresOn(defaultCertExpiry(form.certValidityMonths));
       setIssues([]);
       setStep(1);
     },
-    [client]
+    [client, showError]
   );
 
   const setValue = useCallback(
@@ -217,7 +230,7 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
 
     setLoading(true);
     try {
-      const template = await tefapFormService.getTemplateBytes(selectedForm);
+      const template = templateBytes ?? (await tefapFormService.getTemplateBytes(selectedForm));
       const { fillPdf } = await import("../../../utils/tefapPdf");
       const { bytes, warnings } = await fillPdf(template, selectedForm.fields, valueList);
 
@@ -234,7 +247,7 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [selectedForm, showError, values]);
+  }, [selectedForm, showError, templateBytes, values]);
 
   const handleDownload = useCallback(() => {
     if (!filledBytes || !selectedForm) return;
@@ -346,7 +359,7 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
   }, [onClose, reset, saving]);
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle sx={{ fontWeight: 600, color: "var(--color-primary)" }}>TEFAP form</DialogTitle>
       <DialogContent dividers>
         <Stepper
@@ -456,7 +469,7 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
           </Stack>
         )}
 
-        {step === 1 && selectedForm && !loading && (
+        {step === 1 && selectedForm && templateBytes && inspection && !loading && (
           <Stack spacing={2}>
             {issues.length > 0 && (
               <Alert severity="error">
@@ -466,38 +479,13 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
               </Alert>
             )}
 
-            {fields.map((field) =>
-              field.type === "checkbox" ? (
-                <FormControlLabel
-                  key={field.key}
-                  control={
-                    <Checkbox
-                      checked={values.get(field.key) === true}
-                      onChange={(event) => setValue(field.key, event.target.checked)}
-                    />
-                  }
-                  label={
-                    <span>
-                      {field.label}
-                      {field.required && " *"}
-                    </span>
-                  }
-                />
-              ) : (
-                <TextField
-                  key={field.key}
-                  label={field.label}
-                  required={field.required}
-                  type={field.type === "date" ? "date" : "text"}
-                  multiline={field.type === "multiline"}
-                  minRows={field.type === "multiline" ? 2 : undefined}
-                  InputLabelProps={field.type === "date" ? { shrink: true } : undefined}
-                  value={String(values.get(field.key) ?? "")}
-                  onChange={(event) => setValue(field.key, event.target.value)}
-                  fullWidth
-                />
-              )
-            )}
+            <TefapPdfForm
+              bytes={templateBytes}
+              inspection={inspection}
+              fields={selectedForm.fields}
+              values={values}
+              onChange={setValue}
+            />
           </Stack>
         )}
 

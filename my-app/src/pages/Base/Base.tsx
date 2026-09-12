@@ -24,7 +24,7 @@ import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import DescriptionIcon from "@mui/icons-material/Description";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
-import ArticleIcon from "@mui/icons-material/Article";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import Tab from "./NavBar/Tab";
 import logo from "../../assets/ffa-banner-logo.webp";
 import { Typography, useMediaQuery, MenuItem, Select } from "@mui/material";
@@ -198,7 +198,7 @@ export default function BasePage() {
         icon: <TravelExploreIcon />,
         link: "/clients/query",
       });
-      items.push({ text: "TEFAP Forms", icon: <ArticleIcon />, link: "/tefap" });
+      items.push({ text: "Upload TEFAP Forms", icon: <CloudUploadIcon />, link: "/tefap" });
     }
 
     return items;

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Alert,
   Box,
-  Button,
   Checkbox,
   Chip,
   FormControlLabel,
@@ -14,17 +13,13 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import CallSplitIcon from "@mui/icons-material/CallSplit";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import LockIcon from "@mui/icons-material/Lock";
+import LockOpenIcon from "@mui/icons-material/LockOpen";
 import type { TefapFormField, TefapPdfInspection } from "../../types/tefap-types";
 import { TEFAP_CLIENT_FIELD_SOURCES } from "../../utils/tefapPrefill";
-import {
-  annotationsForFields,
-  isSharedWidgetField,
-  reindex,
-  splitSharedField,
-} from "./tefapMapping";
+import { annotationsForFields } from "./tefapMapping";
 import { cardSx, metaTextSx } from "./tefapStyles";
 
 interface FieldMapperProps {
@@ -41,13 +36,14 @@ interface FieldMapperProps {
  */
 const PREVIEW_SETTLE_MS = 250;
 
-const FIELD_TYPES: Array<{ value: TefapFormField["type"]; label: string }> = [
-  { value: "text", label: "Text" },
-  { value: "multiline", label: "Long text" },
-  { value: "date", label: "Date" },
-  { value: "number", label: "Number" },
-  { value: "checkbox", label: "Checkbox" },
-];
+const FIELD_TYPE_LABELS: Record<TefapFormField["type"], string> = {
+  text: "Text",
+  multiline: "Long text",
+  date: "Date",
+  number: "Number",
+  checkbox: "Checkbox",
+  radio: "Single choice",
+};
 
 /**
  * Maps a template's fields to friendly names, types, and prefills.
@@ -141,20 +137,6 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
     [fields, onChange]
   );
 
-  const handleSplit = useCallback(
-    (key: string) => {
-      onChange(splitSharedField(fields, key, inspection));
-    },
-    [fields, inspection, onChange]
-  );
-
-  const handleRemove = useCallback(
-    (key: string) => {
-      onChange(reindex(fields.filter((field) => field.key !== key)));
-    },
-    [fields, onChange]
-  );
-
   return (
     <Box
       sx={{
@@ -196,7 +178,6 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
         )}
 
         {fields.map((field, index) => {
-          const shared = isSharedWidgetField(field, inspection);
           const isSelected = field.key === selectedKey;
 
           return (
@@ -236,9 +217,12 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
                   onChange={(event) => updateField(field.key, { label: event.target.value })}
                   sx={{ flexGrow: 1 }}
                 />
-                <Tooltip title={field.hidden ? "Show to filler" : "Hide from filler"}>
+                <Tooltip title={field.hidden ? "Show on staff entry screen" : "Hide from staff entry screen"}>
                   <IconButton
                     size="small"
+                    aria-label={
+                      field.hidden ? "Show on staff entry screen" : "Hide from staff entry screen"
+                    }
                     onClick={() => updateField(field.key, { hidden: !field.hidden })}
                   >
                     {field.hidden ? (
@@ -248,6 +232,33 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
                     )}
                   </IconButton>
                 </Tooltip>
+                <Tooltip title={field.readOnly ? "Allow staff to edit" : "Make read-only for staff"}>
+                  <IconButton
+                    size="small"
+                    aria-label={field.readOnly ? "Allow staff to edit" : "Make read-only for staff"}
+                    onClick={() => updateField(field.key, { readOnly: !field.readOnly })}
+                  >
+                    {field.readOnly ? (
+                      <LockIcon fontSize="small" />
+                    ) : (
+                      <LockOpenIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                </Tooltip>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={field.required}
+                      onChange={(event) =>
+                        updateField(field.key, { required: event.target.checked })
+                      }
+                      sx={{ "&.Mui-checked": { color: "var(--color-primary)" } }}
+                    />
+                  }
+                  label="Required"
+                  sx={{ m: 0, whiteSpace: "nowrap" }}
+                />
               </Stack>
 
               <Typography variant="caption" sx={{ ...metaTextSx, display: "block", mb: 1 }}>
@@ -256,46 +267,13 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
                   : `Drawn on page ${field.placement.page}`}
               </Typography>
 
-              {shared && (
-                <Alert
-                  severity="warning"
-                  sx={{ mb: 1 }}
-                  action={
-                    <Button
-                      size="small"
-                      startIcon={<CallSplitIcon />}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleSplit(field.key);
-                      }}
-                      sx={{ textTransform: "none", fontWeight: 600, whiteSpace: "nowrap" }}
-                    >
-                      Split
-                    </Button>
-                  }
-                >
-                  This one PDF field controls several boxes, so they cannot be answered
-                  independently. Split it to give each box its own answer.
-                </Alert>
-              )}
-
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mb: 1 }}>
-                <TextField
-                  select
-                  size="small"
-                  label="Type"
-                  value={field.type}
-                  onChange={(event) =>
-                    updateField(field.key, { type: event.target.value as TefapFormField["type"] })
-                  }
-                  sx={{ minWidth: 130 }}
-                >
-                  {FIELD_TYPES.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                <Box sx={{ minWidth: 130, px: 1.5, py: 0.75 }}>
+                  <Typography variant="caption" sx={metaTextSx}>
+                    Type
+                  </Typography>
+                  <Typography variant="body1">{FIELD_TYPE_LABELS[field.type]}</Typography>
+                </Box>
 
                 <TextField
                   select
@@ -352,32 +330,6 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
                 )}
               </Stack>
 
-              <Stack direction="row" spacing={2} alignItems="center">
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={field.required}
-                      onChange={(event) =>
-                        updateField(field.key, { required: event.target.checked })
-                      }
-                      sx={{ "&.Mui-checked": { color: "var(--color-primary)" } }}
-                    />
-                  }
-                  label="Required"
-                />
-                <Button
-                  size="small"
-                  color="error"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleRemove(field.key);
-                  }}
-                  sx={{ textTransform: "none", fontWeight: 600, marginLeft: "auto" }}
-                >
-                  Remove
-                </Button>
-              </Stack>
             </Paper>
           );
         })}
