@@ -196,6 +196,26 @@ describe("buildFieldsFromInspection", () => {
     });
   });
 
+  it("rejects a partial pairing with a shared No field", () => {
+    const fields = buildFieldsFromInspection(
+      inspectionOf([
+        acro("Household receives TANF", [{ x: 400, y: 120, width: 10 }], {
+          type: "checkbox",
+        }),
+        acro("undefined", [{ x: 430, y: 120 }, { x: 430, y: 100 }], {
+          type: "checkbox",
+        }),
+      ])
+    );
+
+    expect(fields).toHaveLength(2);
+    expect(fields.find((field) => field.label === "Household receives TANF")).toMatchObject({
+      type: "checkbox",
+      radioOptions: undefined,
+    });
+    expect(fields.find((field) => field.label === "undefined")?.type).toBe("checkbox");
+  });
+
   it("skips fields of a type that cannot be filled", () => {
     const fields = buildFieldsFromInspection(
       inspectionOf([acro("sig", [{}], { type: "unsupported" })])

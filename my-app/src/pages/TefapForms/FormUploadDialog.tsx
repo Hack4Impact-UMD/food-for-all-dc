@@ -136,10 +136,7 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({
     setPreviewing(true);
     try {
       const { clients } = await clientService.getAllClients(1);
-      const client = clients[0];
-      if (!client) {
-        throw new Error("No clients are available in client-profile2 for the example preview.");
-      }
+      const client = clients[0] ?? null;
 
       const { fillPdf } = await import("../../utils/tefapPdf");
       const result = await fillPdf(bytes, fields, buildInitialValues(fields, client));

@@ -20,7 +20,14 @@ const mockWriteBatch = jest.fn<any, any>(() => ({
 
 let mockDocIdCounter = 0;
 
-jest.mock("../auth/firebaseConfig", () => ({ db: {} }));
+jest.mock("../auth/firebaseConfig", () => ({
+  auth: {
+    get currentUser() {
+      return (globalThis as any).__tefapTestUser;
+    },
+  },
+  db: {},
+}));
 
 jest.mock("./firebase-storage", () => ({ storage: {} }));
 
@@ -98,6 +105,7 @@ const existingForm = (over: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  (globalThis as any).__tefapTestUser = { uid: "staff-1" };
   tefapFormService.clearTemplateCache();
   mockWriteBatch.mockImplementation(() => ({
     set: mockBatchSet,
@@ -360,6 +368,24 @@ describe("getTemplateBytes", () => {
     await tefapFormService.getTemplateBytes(form);
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not share cached template bytes between signed-in users", async () => {
+    await tefapFormService.getTemplateBytes(form);
+    (globalThis as any).__tefapTestUser = { uid: "staff-2" };
+    await tefapFormService.getTemplateBytes(form);
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not serve cached template bytes after sign-out", async () => {
+    await tefapFormService.getTemplateBytes(form);
+    (globalThis as any).__tefapTestUser = null;
+
+    await expect(tefapFormService.getTemplateBytes(form)).rejects.toThrow(
+      "Sign in before opening a TEFAP template."
+    );
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   // formatServiceError passes an existing ServiceError through untouched, so the

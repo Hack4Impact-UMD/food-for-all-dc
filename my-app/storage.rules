@@ -23,6 +23,13 @@ service firebase.storage {
         && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role.lower() == 'admin';
     }
 
+    function canReadTefapTemplates() {
+      return isSignedIn()
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role is string
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role.lower()
+          in ['admin', 'manager', 'clientintake', 'client intake'];
+    }
+
     // Allow read access to configuration files ONLY for authenticated users
     match /profile-fields.json {
       allow read: if isSignedIn();
@@ -40,14 +47,14 @@ service firebase.storage {
       allow read: if isSignedIn();
     }
 
-    // Blank TEFAP templates are restricted to admins for both reading and
-    // writing. Other authenticated roles cannot list, download, or upload them.
+    // Staff who complete TEFAP forms may read blank templates. Only admins can
+    // upload them.
     //
     // Templates are never overwritten in practice - the form service writes each
     // upload under a fresh form id - so a successful write here is always a new
     // template rather than a change to one that past submissions regenerate from.
     match /tefap-forms/{formId}/{fileName} {
-      allow read: if isAdmin();
+      allow read: if canReadTefapTemplates();
       allow write: if isAdmin()
         && request.resource.size < 15 * 1024 * 1024
         && request.resource.contentType == 'application/pdf';

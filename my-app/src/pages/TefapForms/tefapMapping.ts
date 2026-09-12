@@ -211,6 +211,13 @@ export const buildFieldsFromInspection = (inspection: TefapPdfInspection): Tefap
       .filter((acro) => acro.widgets.every((widget) => claimedNoWidgets.has(widget)))
   );
 
+  for (const [yesField, noWidget] of noWidgetByYesField) {
+    const noField = availableNoWidgets.find(({ widget }) => widget === noWidget)?.acro;
+    if (!noField || !fullyPairedNoFields.has(noField)) {
+      noWidgetByYesField.delete(yesField);
+    }
+  }
+
   return entries
     .filter(({ acro }) => !fullyPairedNoFields.has(acro))
     .map(({ acro }, index) => {

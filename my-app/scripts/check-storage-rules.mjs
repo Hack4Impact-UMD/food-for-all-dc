@@ -35,13 +35,15 @@ const read = async (token, path) => {
 const pdf = Buffer.from('%PDF-1.4\n%%EOF\n');
 const admin = await signIn('admin@example.test');
 const intake = await signIn('intake@example.test');
+const manager = await signIn('manager@example.test');
 const P='tefap-forms/testform/form.pdf';
 
 const ok = (s) => s>=200 && s<300;
 const results = [
   ['Admin uploads a PDF template',            ok(await upload(admin, P, pdf)),                    true],
   ['Non-admin (ClientIntake) upload denied',  ok(await upload(intake,'tefap-forms/x/f.pdf', pdf)),false],
-  ['Signed-in non-admin cannot read template',ok(await read(intake, P)),                          false],
+  ['ClientIntake can read template',          ok(await read(intake, P)),                          true],
+  ['Manager can read template',              ok(await read(manager, P)),                         true],
   ['Anonymous read denied',                   ok(await read(null, P)),                            false],
   ['Admin upload of a non-PDF denied',        ok(await upload(admin,'tefap-forms/y/a.txt',Buffer.from('hi'),'text/plain')), false],
   ['Write outside tefap-forms denied',        ok(await upload(admin,'somewhere/else.pdf', pdf)),  false],

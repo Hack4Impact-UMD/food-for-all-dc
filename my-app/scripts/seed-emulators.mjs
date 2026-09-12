@@ -20,6 +20,12 @@ const ACCOUNTS = [
     name: "Emulator Intake",
     role: "ClientIntake",
   },
+  {
+    email: "manager@example.test",
+    password: "password123",
+    name: "Emulator Manager",
+    role: "Manager",
+  },
 ];
 
 const CLIENTS = [

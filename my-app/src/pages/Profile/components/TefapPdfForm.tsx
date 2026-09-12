@@ -115,12 +115,17 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
 
     for (const [id, annotation] of annotationsRef.current) {
       const target = targetForAnnotation(annotation, fieldsRef.current);
-      if (!target) continue;
-
       const element = container.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
         `[data-element-id="${CSS.escape(id)}"]`
       );
       const section = element?.closest<HTMLElement>("section");
+
+      if (!target) {
+        if (section) section.hidden = true;
+        if (element) element.disabled = true;
+        continue;
+      }
+
       if (section) section.hidden = target.field.hidden === true;
       if (!element) continue;
 
@@ -133,6 +138,7 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
         element.disabled = readOnly;
       }
       element.setAttribute("aria-readonly", String(readOnly));
+      element.dataset.tefapMapped = "true";
       element.dataset.tefapReadOnly = String(readOnly);
     }
   }, []);
@@ -238,7 +244,7 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
       ref={containerRef}
       sx={{
         width: "100%",
-        "& .annotationLayer .textWidgetAnnotation [data-tefap-read-only]": {
+        "& .annotationLayer .textWidgetAnnotation [data-tefap-mapped='true']": {
           clipPath: "inset(0 0 28% 0)",
         },
         "& .annotationLayer [data-tefap-read-only='true']": {

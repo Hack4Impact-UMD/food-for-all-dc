@@ -148,4 +148,16 @@ describe("buildInitialValues", () => {
       { field: "income", value: "" },
     ]);
   });
+
+  it("builds a blank preview without a client while preserving static values", () => {
+    const fields = [
+      field({ key: "name", prefill: { source: "client", clientKey: "fullName" } }),
+      field({ key: "site", prefill: { source: "static", staticValue: "FOOD FOR ALL DC" } }),
+    ];
+
+    expect(buildInitialValues(fields, null)).toEqual([
+      { field: "name", value: "" },
+      { field: "site", value: "FOOD FOR ALL DC" },
+    ]);
+  });
 });

@@ -2,6 +2,9 @@
   "name": "my-app",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@daypilot/daypilot-lite-react": "^3.28.0",
     "@emotion/react": "^11.13.3",

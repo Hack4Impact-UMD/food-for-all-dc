@@ -43,7 +43,7 @@ The system handles client intake, delivery scheduling, route optimization, and r
 ## ⚙️ Quick Start
 
 ### Prerequisites
-- Node.js (v16+)
+- Node.js (v18+)
 - Python 3.11+
 - Firebase CLI
 

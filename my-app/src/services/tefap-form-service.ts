@@ -22,7 +22,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db } from "../auth/firebaseConfig";
+import { auth, db } from "../auth/firebaseConfig";
 import { storage } from "./firebase-storage";
 import dataSources from "../config/dataSources";
 import { retry } from "../utils/retry";
@@ -340,11 +340,20 @@ class TefapFormService {
   }
 
   /**
-   * The template's bytes, for filling. Cached per form id, so a bulk export
-   * downloads each template once no matter how many documents it produces.
+   * The template's bytes, for filling. Cached per user and form id, so a bulk
+   * export downloads each template once without crossing auth sessions.
    */
   public async getTemplateBytes(form: Pick<TefapForm, "id" | "storagePath">): Promise<Uint8Array> {
-    const cached = this.templateCache.get(form.id);
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      throw new ServiceError(
+        "Sign in before opening a TEFAP template.",
+        "tefap/auth-required"
+      );
+    }
+
+    const cacheKey = `${userId}:${form.id}`;
+    const cached = this.templateCache.get(cacheKey);
     if (cached) return cached;
 
     try {
@@ -361,7 +370,7 @@ class TefapFormService {
       });
 
       const bytes = new Uint8Array(await response.arrayBuffer());
-      this.templateCache.set(form.id, bytes);
+      this.templateCache.set(cacheKey, bytes);
       return bytes;
     } catch (error) {
       throw formatServiceError(error, "Failed to download the form PDF.");
