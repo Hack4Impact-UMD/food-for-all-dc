@@ -146,7 +146,7 @@ export default function BasePage() {
       setTab("Ad-Hoc Query Tool");
     } else if (currentPath === "/tefap") {
       setPageTitle("TEFAP Forms");
-      setTab("TEFAP Forms");
+      setTab("Upload TEFAP Forms");
     } else if (currentPath.startsWith("/reports")) {
       // Handle reports routes
       if (currentPath === "/reports/summary") {
