@@ -127,12 +127,13 @@ describe("inspectPdf", () => {
     expect(shared?.widgets.every((widget) => widget.page === 1)).toBe(true);
   });
 
-  it("flags fields that drive more than one box as unusable independently", async () => {
+  it("accepts radio options as one single-choice field", async () => {
     const inspection = await inspectPdf(await buildFillablePdf());
     const diagnostic = inspection.diagnostics.find((d) => d.code === "shared-widgets");
 
     expect(diagnostic).toBeDefined();
-    expect(diagnostic?.fieldNames).toContain("Household receives TANF");
+    expect(diagnostic?.fieldNames).not.toContain("Household receives TANF");
+    expect(diagnostic?.fieldNames).toContain("undefined");
   });
 
   it("flags auto-generated field names that say nothing about the field", async () => {
@@ -213,6 +214,39 @@ describe("fillPdf", () => {
     expect(checked.bytes.length).toBeGreaterThan(unchecked.bytes.length);
   });
 
+  it("draws only the selected target for an inferred Yes/No radio pair", async () => {
+    const template = await buildFillablePdf();
+    const field = acroField("medicaid", "Household receives Medicaid Yes", {
+      type: "radio",
+      options: ["Yes", "No"],
+      radioOptions: [
+        {
+          value: "Yes",
+          placement: { kind: "acroform", pdfFieldName: "Household receives Medicaid Yes" },
+        },
+        {
+          value: "No",
+          placement: {
+            kind: "overlay",
+            page: 1,
+            x: 252,
+            y: 600,
+            width: 11,
+            height: 11,
+            fontSize: 11,
+            align: "center",
+          },
+        },
+      ],
+    });
+
+    const selected = await fillPdf(template, [field], [{ field: "medicaid", value: "No" }]);
+    const blank = await fillPdf(template, [field], [{ field: "medicaid", value: "" }]);
+
+    expect(selected.warnings).toHaveLength(0);
+    expect(selected.bytes.length).toBeGreaterThan(blank.bytes.length);
+  });
+
   it("removes button fields from the output so their state cannot be altered", async () => {
     const template = await buildFillablePdf();
     const fields = [acroField("yes", "Household receives Medicaid Yes", { type: "checkbox" })];
@@ -270,8 +304,7 @@ describe("fillPdf", () => {
     expect(warnings).toHaveLength(0);
   });
 
-  // A yes/no answer cannot say which of several options was meant, so the admin
-  // is told to split the field rather than handed a silently blank form.
+  // A boolean from a legacy mapping cannot identify which radio option was meant.
   it("explains why a ticked multi-option radio group cannot be resolved", async () => {
     const template = await buildFillablePdf();
     const fields = [acroField("row", "Household receives TANF", { type: "checkbox" })];
@@ -280,7 +313,17 @@ describe("fillPdf", () => {
 
     expect(warnings).toHaveLength(1);
     expect(warnings[0].code).toBe("shared-widgets");
-    expect(warnings[0].message).toContain("Split it into one field per box");
+    expect(warnings[0].message).toContain("cannot say which option to mark");
+  });
+
+  it("uses checkbox string truthiness consistently", async () => {
+    const template = await buildFillablePdf();
+    const fields = [acroField("yes", "Household receives Medicaid Yes", { type: "checkbox" })];
+
+    const checked = await fillPdf(template, fields, [{ field: "yes", value: "Yes" }]);
+    const unchecked = await fillPdf(template, fields, [{ field: "yes", value: "No" }]);
+
+    expect(checked.bytes.length).toBeGreaterThan(unchecked.bytes.length);
   });
 
   it("warns instead of throwing when the template no longer has a mapped field", async () => {

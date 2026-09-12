@@ -21,6 +21,7 @@ import type {
   TefapTextAlign,
 } from "../types/tefap-types";
 import { ServiceError } from "./serviceError";
+import { isTefapTruthy } from "./tefapFields";
 
 type PdfLib = typeof import("pdf-lib");
 
@@ -174,12 +175,10 @@ export const inspectPdf = async (bytes: Uint8Array): Promise<TefapPdfInspection>
 
     acroFields.push({ name, type, currentValue, options, widgets });
 
-    // One field driving several widgets means those widgets cannot be set
-    // independently: a radio group holds a single selection, and duplicate
-    // checkbox widgets share one value. Whenever those widgets sit on
-    // different rows of the form, the field is unusable as-is and the admin
-    // needs to place each widget as its own overlay field.
-    if (widgets.length > 1) {
+    // Multiple widgets are expected for a radio group: they are the choices
+    // belonging to one single-selection field. Duplicate checkbox widgets,
+    // however, all share the same checked state and remain worth flagging.
+    if (type === "checkbox" && widgets.length > 1) {
       sharedWidgetNames.push(name);
     }
     if (isUninformativeName(name)) {
@@ -203,7 +202,7 @@ export const inspectPdf = async (bytes: Uint8Array): Promise<TefapPdfInspection>
       fieldNames: sharedWidgetNames,
       message:
         `${sharedWidgetNames.length} field(s) control more than one box on the page and ` +
-        "cannot be set independently. Place each box as its own field to control them separately.",
+        "will apply the same checked state to every box.",
     });
   }
 
@@ -225,12 +224,6 @@ export const inspectPdf = async (bytes: Uint8Array): Promise<TefapPdfInspection>
 const asText = (value: string | boolean): string => {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return value;
-};
-
-const isTruthy = (value: string | boolean): boolean => {
-  if (typeof value === "boolean") return value;
-  const normalized = value.trim().toLowerCase();
-  return normalized !== "" && !["false", "no", "n", "0", "off", "unchecked"].includes(normalized);
 };
 
 /**
@@ -407,6 +400,42 @@ export const fillPdf = async (
 
     const raw = valueByField.get(field.key) as string | boolean;
 
+    if (field.type === "radio" && field.radioOptions) {
+      const selected = field.radioOptions.find((option) => option.value === raw);
+      if (!selected) {
+        if (String(raw).trim()) {
+          warnings.push({
+            fieldKey: field.key,
+            code: "type-mismatch",
+            message: `"${field.label}" has no option matching "${asText(raw)}".`,
+          });
+        }
+        continue;
+      }
+
+      if (selected.placement.kind === "overlay") {
+        pendingMarks.push({
+          pageIndex: selected.placement.page - 1,
+          rect: selected.placement,
+        });
+        continue;
+      }
+
+      try {
+        const target = form.getField(selected.placement.pdfFieldName);
+        pendingMarks.push(...widgetRects(target));
+      } catch {
+        warnings.push({
+          fieldKey: field.key,
+          code: "missing-pdf-field",
+          message:
+            `"${field.label}" could not be written: the PDF has no field named ` +
+            `"${selected.placement.pdfFieldName}".`,
+        });
+      }
+      continue;
+    }
+
     if (field.placement.kind === "acroform") {
       const pdfFieldName = field.placement.pdfFieldName;
       let target: any;
@@ -431,7 +460,7 @@ export const fillPdf = async (
           const selection = asText(raw);
           if (selection) target.select(selection);
         } else if (targetType === "checkbox") {
-          if (!isTruthy(raw)) continue;
+          if (!isTefapTruthy(raw)) continue;
 
           const marks = widgetRects(target);
           if (marks.length > 1) {
@@ -447,11 +476,8 @@ export const fillPdf = async (
         } else if (targetType === "radio") {
           const marks = widgetRects(target);
 
-          // The mapper collapses a radio group to a checkbox, so the answer
-          // usually arrives as a boolean with no option name attached. A group
-          // drawing a single box is a checkbox in all but name and can be
-          // marked directly; one drawing several cannot be resolved from a
-          // yes/no, and the admin has to split it into per-box fields.
+          // Legacy templates may still contain a boolean radio answer from
+          // before radio options were preserved in the mapping.
           if (typeof raw === "boolean") {
             if (!raw) continue;
 
@@ -463,7 +489,7 @@ export const fillPdf = async (
                 code: "shared-widgets",
                 message:
                   `"${field.label}" is a radio group controlling ${marks.length} boxes, so a ` +
-                  "yes/no answer cannot say which to mark. Split it into one field per box.",
+                  "yes/no answer cannot say which option to mark.",
               });
             }
             continue;
@@ -520,7 +546,7 @@ export const fillPdf = async (
     }
 
     if (field.type === "checkbox") {
-      if (isTruthy(raw)) {
+      if (isTefapTruthy(raw)) {
         pendingMarks.push({ pageIndex, rect: placement });
       }
       continue;

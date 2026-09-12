@@ -2,6 +2,8 @@ import { describe, expect, it, jest } from "@jest/globals";
 import { render, screen } from "@testing-library/react";
 import MiscellaneousForm from "../../../pages/Profile/components/MiscellaneousForm";
 
+jest.mock("../../../pages/Profile/components/TefapFillDialog", () => () => null);
+
 describe("MiscellaneousForm narrative text", () => {
   it("keeps Life Challenges and Lifestyle Goals readable without splitting words", () => {
     render(

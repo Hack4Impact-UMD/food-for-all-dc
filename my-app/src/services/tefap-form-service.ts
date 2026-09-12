@@ -22,7 +22,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db } from "../auth/firebaseConfig";
+import { auth, db } from "../auth/firebaseConfig";
 import { storage } from "./firebase-storage";
 import dataSources from "../config/dataSources";
 import { retry } from "../utils/retry";
@@ -35,6 +35,41 @@ import type { TefapActor, TefapForm, TefapFormField, TefapFormStatus } from "../
 export const MAX_TEMPLATE_BYTES = 15 * 1024 * 1024;
 
 const DEFAULT_CERT_VALIDITY_MONTHS = 12;
+
+const fieldsForStorage = (fields: TefapFormField[]): TefapFormField[] =>
+  JSON.parse(JSON.stringify(fields)) as TefapFormField[];
+
+const formatTemplateUploadError = (error: unknown): ServiceError => {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String((error as { code?: unknown }).code ?? "")
+      : "";
+
+  if (code === "storage/unauthorized") {
+    return new ServiceError(
+      "Firebase Storage denied the upload. Confirm that the TEFAP Storage rules are deployed " +
+        'and your user record has the Admin role.',
+      code,
+      error
+    );
+  }
+  if (code === "storage/bucket-not-found") {
+    return new ServiceError(
+      "The configured Firebase Storage bucket was not found.",
+      code,
+      error
+    );
+  }
+  if (code === "storage/retry-limit-exceeded") {
+    return new ServiceError(
+      "The PDF upload timed out. Check your connection and try again.",
+      code,
+      error
+    );
+  }
+
+  return formatServiceError(error, "Failed to upload the PDF.");
+};
 
 export interface CreateTefapFormInput {
   name: string;
@@ -152,7 +187,7 @@ class TefapFormService {
         contentType: "application/pdf",
       });
     } catch (error) {
-      throw formatServiceError(error, "Failed to upload the PDF.");
+      throw formatTemplateUploadError(error);
     }
 
     const record = {
@@ -167,7 +202,7 @@ class TefapFormService {
       effectiveFrom: input.effectiveFrom ?? "",
       effectiveTo: input.effectiveTo ?? "",
       certValidityMonths: input.certValidityMonths ?? DEFAULT_CERT_VALIDITY_MONTHS,
-      fields: input.fields,
+      fields: fieldsForStorage(input.fields),
       createdAt: serverTimestamp(),
       createdBy: actor,
       updatedAt: serverTimestamp(),
@@ -208,7 +243,7 @@ class TefapFormService {
     if (submissionCount === 0) {
       try {
         await updateDoc(doc(this.db, this.formsCollection, formId), {
-          fields,
+          fields: fieldsForStorage(fields),
           updatedAt: serverTimestamp(),
           updatedBy: actor,
         });
@@ -237,7 +272,7 @@ class TefapFormService {
       effectiveFrom: existing.effectiveFrom ?? "",
       effectiveTo: existing.effectiveTo ?? "",
       certValidityMonths: existing.certValidityMonths,
-      fields,
+      fields: fieldsForStorage(fields),
       createdAt: serverTimestamp(),
       createdBy: actor,
       updatedAt: serverTimestamp(),
@@ -305,11 +340,20 @@ class TefapFormService {
   }
 
   /**
-   * The template's bytes, for filling. Cached per form id, so a bulk export
-   * downloads each template once no matter how many documents it produces.
+   * The template's bytes, for filling. Cached per user and form id, so a bulk
+   * export downloads each template once without crossing auth sessions.
    */
   public async getTemplateBytes(form: Pick<TefapForm, "id" | "storagePath">): Promise<Uint8Array> {
-    const cached = this.templateCache.get(form.id);
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      throw new ServiceError(
+        "Sign in before opening a TEFAP template.",
+        "tefap/auth-required"
+      );
+    }
+
+    const cacheKey = `${userId}:${form.id}`;
+    const cached = this.templateCache.get(cacheKey);
     if (cached) return cached;
 
     try {
@@ -326,7 +370,7 @@ class TefapFormService {
       });
 
       const bytes = new Uint8Array(await response.arrayBuffer());
-      this.templateCache.set(form.id, bytes);
+      this.templateCache.set(cacheKey, bytes);
       return bytes;
     } catch (error) {
       throw formatServiceError(error, "Failed to download the form PDF.");

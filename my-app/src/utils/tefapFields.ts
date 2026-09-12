@@ -4,7 +4,7 @@
 // Kept separate from tefapPdf so it carries no PDF dependency, and separate
 // from tefapPrefill so it knows nothing about client profiles.
 
-import type { TefapFieldValue, TefapFormField } from "../types/tefap-types";
+import type { TefapFieldValue, TefapFormField, TefapPdfInspection } from "../types/tefap-types";
 
 export interface TefapValidationIssue {
   fieldKey: string;
@@ -12,6 +12,53 @@ export interface TefapValidationIssue {
   code: "required";
   message: string;
 }
+
+/** Matches the checkbox truthiness used when the final PDF is generated. */
+export const isTefapTruthy = (value: string | boolean): boolean => {
+  if (typeof value === "boolean") return value;
+  const normalized = value.trim().toLowerCase();
+  return normalized !== "" && !["false", "no", "n", "0", "off", "unchecked"].includes(normalized);
+};
+
+export interface TefapRadioControlState {
+  fieldKey: string;
+  option: string;
+  checked: boolean;
+}
+
+/** Reconciles every visible native radio widget after PDF.js mutates a group. */
+export const collectRadioControlValues = (
+  controls: TefapRadioControlState[]
+): Map<string, string> => {
+  const values = new Map<string, string>();
+  for (const control of controls) {
+    if (!values.has(control.fieldKey)) values.set(control.fieldKey, "");
+    if (control.checked) values.set(control.fieldKey, control.option);
+  }
+  return values;
+};
+
+/** Upgrades mappings saved before native PDF radio groups were supported. */
+export const reconcileFieldsWithInspection = (
+  fields: TefapFormField[],
+  inspection: TefapPdfInspection
+): TefapFormField[] => {
+  const acroByName = new Map(inspection.acroFields.map((field) => [field.name, field]));
+
+  return fields.map((field) => {
+    if (field.type !== "checkbox" || field.placement.kind !== "acroform") return field;
+
+    const acro = acroByName.get(field.placement.pdfFieldName);
+    if (acro?.type !== "radio") return field;
+
+    return {
+      ...field,
+      type: "radio",
+      options: acro.options ?? [],
+      exclusiveWith: undefined,
+    };
+  });
+};
 
 /** Empty value appropriate to a field's type. */
 export const emptyValueFor = (field: TefapFormField): string | boolean =>

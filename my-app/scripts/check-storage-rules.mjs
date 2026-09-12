@@ -11,49 +11,76 @@
 //   npm run seed:emulators
 //   npm run check:rules
 
-const AUTH='http://localhost:9099', ST='http://localhost:9199';
-const BUCKET='food-for-all-dc-caf23.firebasestorage.app';
+import { initializeApp } from "firebase/app";
+import {
+  connectAuthEmulator,
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
+import { connectStorageEmulator, getBytes, getStorage, ref, uploadBytes } from "firebase/storage";
 
-const signIn = async (email) => {
-  const r = await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=emulator`,
-    {method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({email,password:'password123',returnSecureToken:true})});
-  return (await r.json()).idToken;
+const app = initializeApp({
+  apiKey: "emulator",
+  projectId: "food-for-all-dc-caf23",
+  storageBucket: "food-for-all-dc-caf23.firebasestorage.app",
+});
+const auth = getAuth(app);
+const storage = getStorage(app);
+connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
+connectStorageEmulator(storage, "localhost", 9199);
+
+const signIn = (email) => signInWithEmailAndPassword(auth, email, "password123");
+const allowed = async (operation) => {
+  try {
+    await operation();
+    return true;
+  } catch {
+    return false;
+  }
 };
 
-const upload = async (token, path, body, type='application/pdf') => {
-  const r = await fetch(`${ST}/v0/b/${BUCKET}/o?name=${encodeURIComponent(path)}`,
-    {method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':type},body});
-  return r.status;
-};
-const read = async (token, path) => {
-  const r = await fetch(`${ST}/v0/b/${BUCKET}/o/${encodeURIComponent(path)}?alt=media`,
-    {headers: token?{Authorization:`Bearer ${token}`}:{}});
-  return r.status;
-};
+const upload = (path, body, type = "application/pdf") =>
+  allowed(() => uploadBytes(ref(storage, path), body, { contentType: type }));
+const read = (path) => allowed(() => getBytes(ref(storage, path)));
 
-const pdf = Buffer.from('%PDF-1.4\n%%EOF\n');
-const admin = await signIn('admin@example.test');
-const intake = await signIn('intake@example.test');
-const P='tefap-forms/testform/form.pdf';
+const pdf = Buffer.from("%PDF-1.4\n%%EOF\n");
+const P = "tefap-forms/testform/form.pdf";
 
-const ok = (s) => s>=200 && s<300;
-const results = [
-  ['Admin uploads a PDF template',            ok(await upload(admin, P, pdf)),                    true],
-  ['Non-admin (ClientIntake) upload denied',  ok(await upload(intake,'tefap-forms/x/f.pdf', pdf)),false],
-  ['Signed-in non-admin can read a template', ok(await read(intake, P)),                          true],
-  ['Anonymous read denied',                   ok(await read(null, P)),                            false],
-  ['Admin upload of a non-PDF denied',        ok(await upload(admin,'tefap-forms/y/a.txt',Buffer.from('hi'),'text/plain')), false],
-  ['Write outside tefap-forms denied',        ok(await upload(admin,'somewhere/else.pdf', pdf)),  false],
-];
+const results = [];
+await signIn("admin@example.test");
+results.push(["Admin uploads a PDF template", await upload(P, pdf), true]);
+results.push([
+  "Admin upload of a non-PDF denied",
+  await upload("tefap-forms/y/a.txt", Buffer.from("hi"), "text/plain"),
+  false,
+]);
+results.push(["Write outside tefap-forms denied", await upload("somewhere/else.pdf", pdf), false]);
 
-let bad=0;
+await signIn("intake@example.test");
+results.push([
+  "Non-admin (ClientIntake) upload denied",
+  await upload("tefap-forms/x/f.pdf", pdf),
+  false,
+]);
+results.push(["ClientIntake can read template", await read(P), true]);
+
+await signIn("manager@example.test");
+results.push(["Manager can read template", await read(P), true]);
+
+await signIn("driver@example.test");
+results.push(["Other signed-in roles cannot read", await read(P), false]);
+
+await signOut(auth);
+results.push(["Anonymous read denied", await read(P), false]);
+
+let bad = 0;
 for (const [name, actual, expected] of results) {
-  const pass = actual===expected;
-  if(!pass) bad++;
-  console.log(`${pass?'PASS':'FAIL'}  ${name}  (allowed=${actual}, expected=${expected})`);
+  const pass = actual === expected;
+  if (!pass) bad++;
+  console.log(`${pass ? "PASS" : "FAIL"}  ${name}  (allowed=${actual}, expected=${expected})`);
 }
-console.log(bad? `\n${bad} rule check(s) FAILED` : '\nAll storage rule checks passed');
+console.log(bad ? `\n${bad} rule check(s) FAILED` : "\nAll storage rule checks passed");
 
 // Exit non-zero on failure so CI and pre-deploy `&&` chains actually stop. A
 // rule that is too open otherwise looks exactly like one that works.

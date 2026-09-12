@@ -1,15 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  Alert,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
 import type {
   TefapActor,
   TefapForm,
@@ -21,12 +11,12 @@ import { useNotifications } from "../../components/NotificationProvider";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import FieldMapper from "./FieldMapper";
 import { primaryButtonSx, quietButtonSx } from "./tefapStyles";
+import { reconcileFieldsWithInspection } from "../../utils/tefapFields";
 
-interface FieldMapDialogProps {
-  /** The form to edit, or null when the dialog is closed. */
-  form: TefapForm | null;
+interface FieldMapEditorProps {
+  form: TefapForm;
   actor: TefapActor;
-  onClose: () => void;
+  onBack: () => void;
   onSaved: () => void;
 }
 
@@ -43,7 +33,7 @@ interface FieldMapDialogProps {
  * clients have already certified - so the outcome is reported rather than
  * treated as an ordinary save.
  */
-const FieldMapDialog: React.FC<FieldMapDialogProps> = ({ form, actor, onClose, onSaved }) => {
+const FieldMapEditor: React.FC<FieldMapEditorProps> = ({ form, actor, onBack, onSaved }) => {
   const { showSuccess, showError } = useNotifications();
 
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
@@ -53,11 +43,9 @@ const FieldMapDialog: React.FC<FieldMapDialogProps> = ({ form, actor, onClose, o
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const formId = form?.id;
+  const formId = form.id;
 
   useEffect(() => {
-    if (!formId) return;
-
     let cancelled = false;
     setLoading(true);
 
@@ -75,12 +63,12 @@ const FieldMapDialog: React.FC<FieldMapDialogProps> = ({ form, actor, onClose, o
 
         setBytes(template);
         setInspection(result);
-        setFields(current.fields);
+        setFields(reconcileFieldsWithInspection(current.fields, result));
         setSubmissionCount(count);
       } catch (error) {
         if (cancelled) return;
         showError(error instanceof Error ? error.message : "Failed to open the field mapping.");
-        onClose();
+        onBack();
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -90,20 +78,18 @@ const FieldMapDialog: React.FC<FieldMapDialogProps> = ({ form, actor, onClose, o
     return () => {
       cancelled = true;
     };
-  }, [formId, onClose, showError]);
+  }, [formId, onBack, showError]);
 
-  const handleClose = useCallback(() => {
+  const handleBack = useCallback(() => {
     if (saving) return;
     setBytes(null);
     setInspection(null);
     setFields([]);
     setSubmissionCount(null);
-    onClose();
-  }, [onClose, saving]);
+    onBack();
+  }, [onBack, saving]);
 
   const handleSave = useCallback(async () => {
-    if (!formId) return;
-
     setSaving(true);
     try {
       const { createdNewVersion } = await tefapFormService.saveFieldMap(formId, fields, actor);
@@ -123,56 +109,58 @@ const FieldMapDialog: React.FC<FieldMapDialogProps> = ({ form, actor, onClose, o
   }, [actor, fields, formId, onSaved, showError, showSuccess]);
 
   return (
-    <Dialog open={Boolean(form)} onClose={handleClose} maxWidth="xl" fullWidth>
-      <DialogTitle sx={{ fontWeight: 600, color: "var(--color-primary)" }}>
-        Edit field mapping{form ? ` - ${form.name}` : ""}
-      </DialogTitle>
-      <DialogContent dividers>
-        {loading && <LoadingIndicator />}
+    <Box>
+      {loading && (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+          <LoadingIndicator />
+        </Box>
+      )}
 
-        {!loading && inspection && bytes && (
-          <Stack spacing={2}>
-            {submissionCount !== null && submissionCount > 0 && (
-              <Alert severity="info">
-                {submissionCount} submission{submissionCount === 1 ? " has" : "s have"} already been
-                recorded against this template, so saving creates version {form ? form.version + 1 : 2}{" "}
-                instead of editing this one. The current version is archived but stays readable.
-              </Alert>
-            )}
+      {!loading && inspection && bytes && (
+        <Stack spacing={2}>
+          {submissionCount !== null && submissionCount > 0 && (
+            <Alert severity="info">
+              {submissionCount} submission{submissionCount === 1 ? " has" : "s have"} already been
+              recorded against this template, so saving creates version {form.version + 1} instead
+              of editing this one. The current version is archived but stays readable.
+            </Alert>
+          )}
 
-            {submissionCount === 0 && (
-              <Typography variant="body2" sx={{ color: "var(--color-text-secondary)" }}>
-                No submissions reference this template yet, so the mapping is edited in place.
-              </Typography>
-            )}
+          {submissionCount === 0 && (
+            <Typography variant="body2" sx={{ color: "var(--color-text-secondary)" }}>
+              No submissions reference this template yet, so the mapping is edited in place.
+            </Typography>
+          )}
 
-            <FieldMapper
-              templateBytes={bytes}
-              inspection={inspection}
-              fields={fields}
-              onChange={setFields}
-            />
+          <FieldMapper
+            templateBytes={bytes}
+            inspection={inspection}
+            fields={fields}
+            onChange={setFields}
+          />
+
+          <Stack direction="row" justifyContent="flex-end" spacing={1}>
+            <Button onClick={handleBack} disabled={saving} sx={quietButtonSx}>
+              Back
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => void handleSave()}
+              disabled={!inspection || saving}
+              startIcon={
+                saving ? (
+                  <CircularProgress size={16} sx={{ color: "var(--color-white)" }} />
+                ) : undefined
+              }
+              sx={primaryButtonSx}
+            >
+              {saving ? "Saving..." : "Save mapping"}
+            </Button>
           </Stack>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} disabled={saving} sx={quietButtonSx}>
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          onClick={() => void handleSave()}
-          disabled={loading || !inspection || saving}
-          startIcon={
-            saving ? <CircularProgress size={16} sx={{ color: "var(--color-white)" }} /> : undefined
-          }
-          sx={primaryButtonSx}
-        >
-          {saving ? "Saving..." : "Save mapping"}
-        </Button>
-      </DialogActions>
-    </Dialog>
+        </Stack>
+      )}
+    </Box>
   );
 };
 
-export default FieldMapDialog;
+export default FieldMapEditor;

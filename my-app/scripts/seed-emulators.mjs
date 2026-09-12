@@ -20,6 +20,18 @@ const ACCOUNTS = [
     name: "Emulator Intake",
     role: "ClientIntake",
   },
+  {
+    email: "manager@example.test",
+    password: "password123",
+    name: "Emulator Manager",
+    role: "Manager",
+  },
+  {
+    email: "driver@example.test",
+    password: "password123",
+    name: "Emulator Driver",
+    role: "Driver",
+  },
 ];
 
 const CLIENTS = [
@@ -84,7 +96,9 @@ const toFirestoreFields = (record) =>
 const request = async (url, options) => {
   const response = await fetch(url, options);
   if (!response.ok) {
-    throw new Error(`${options?.method ?? "GET"} ${url} -> ${response.status} ${await response.text()}`);
+    throw new Error(
+      `${options?.method ?? "GET"} ${url} -> ${response.status} ${await response.text()}`
+    );
   }
   return response.json();
 };
@@ -134,14 +148,11 @@ const createAccount = async (account) => {
 };
 
 const writeDoc = async (collection, id, data) =>
-  request(
-    `${FIRESTORE}/v1/projects/${PROJECT}/databases/(default)/documents/${collection}/${id}`,
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: toFirestoreFields(data) }),
-    }
-  );
+  request(`${FIRESTORE}/v1/projects/${PROJECT}/databases/(default)/documents/${collection}/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: toFirestoreFields(data) }),
+  });
 
 const main = async () => {
   await checkRunning();

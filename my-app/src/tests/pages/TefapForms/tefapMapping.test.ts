@@ -2,9 +2,6 @@ import { describe, expect, it } from "@jest/globals";
 import {
   annotationsForFields,
   buildFieldsFromInspection,
-  isSharedWidgetField,
-  reindex,
-  splitSharedField,
   suggestClientKey,
 } from "../../../pages/TefapForms/tefapMapping";
 import type { TefapAcroField, TefapPdfInspection } from "../../../types/tefap-types";
@@ -114,6 +111,13 @@ describe("buildFieldsFromInspection", () => {
     expect(new Set(fields.map((f) => f.key)).size).toBe(2);
   });
 
+  it("makes newly discovered fields visible and editable to staff", () => {
+    const [field] = buildFieldsFromInspection(inspectionOf([acro("Name", [{}])]));
+
+    expect(field.hidden).toBe(false);
+    expect(field.readOnly).toBe(false);
+  });
+
   // A value saved into the template is the form author's own default.
   it("offers a value already saved in the template as a fixed prefill", () => {
     const fields = buildFieldsFromInspection(
@@ -143,15 +147,101 @@ describe("buildFieldsFromInspection", () => {
     expect(fields[0].prefill.source).toBe("static");
   });
 
-  it("maps checkbox and radio fields to a checkbox", () => {
+  it("preserves a radio group as one single-choice field with the PDF's options", () => {
     const fields = buildFieldsFromInspection(
       inspectionOf([
         acro("box", [{}], { type: "checkbox" }),
-        acro("group", [{ y: 100 }], { type: "radio" }),
+        acro("group", [{ y: 120 }, { y: 100 }], { type: "radio", options: ["Yes", "No"] }),
       ])
     );
 
-    expect(fields.every((f) => f.type === "checkbox")).toBe(true);
+    expect(fields.find((field) => field.label === "box")?.type).toBe("checkbox");
+    expect(fields.find((field) => field.label === "group")).toMatchObject({
+      type: "radio",
+      options: ["Yes", "No"],
+    });
+  });
+
+  it("combines each named Yes checkbox with the unnamed No widget on its row", () => {
+    const fields = buildFieldsFromInspection(
+      inspectionOf([
+        acro("Household receives TANF", [{ x: 400, y: 120, width: 10 }], {
+          type: "checkbox",
+        }),
+        acro("Household receives SNAP", [{ x: 400, y: 100, width: 10 }], {
+          type: "checkbox",
+        }),
+        acro(
+          "undefined",
+          [
+            { x: 430, y: 120 },
+            { x: 430, y: 100 },
+          ],
+          {
+            type: "checkbox",
+          }
+        ),
+      ])
+    );
+
+    expect(fields).toHaveLength(2);
+    expect(fields.map((field) => field.label)).toEqual([
+      "Household receives TANF",
+      "Household receives SNAP",
+    ]);
+    expect(fields.every((field) => field.type === "radio")).toBe(true);
+    expect(fields.every((field) => field.options?.join("|") === "Yes|No")).toBe(true);
+    expect(fields[0].radioOptions?.[1].placement).toMatchObject({
+      kind: "overlay",
+      x: 430,
+      y: 120,
+    });
+    expect(fields[1].radioOptions?.[1].placement).toMatchObject({
+      kind: "overlay",
+      x: 430,
+      y: 100,
+    });
+  });
+
+  it("rejects a partial pairing with a shared No field", () => {
+    const fields = buildFieldsFromInspection(
+      inspectionOf([
+        acro("Household receives TANF", [{ x: 400, y: 120, width: 10 }], {
+          type: "checkbox",
+        }),
+        acro(
+          "undefined",
+          [
+            { x: 430, y: 120 },
+            { x: 430, y: 100 },
+          ],
+          {
+            type: "checkbox",
+          }
+        ),
+      ])
+    );
+
+    expect(fields).toHaveLength(2);
+    expect(fields.find((field) => field.label === "Household receives TANF")).toMatchObject({
+      type: "checkbox",
+      radioOptions: undefined,
+    });
+    expect(fields.find((field) => field.label === "undefined")?.type).toBe("checkbox");
+  });
+
+  it("does not absorb an unrelated unnamed checkbox on the same row", () => {
+    const fields = buildFieldsFromInspection(
+      inspectionOf([
+        acro("Household receives TANF", [{ x: 400, y: 120, width: 10 }], {
+          type: "checkbox",
+        }),
+        acro("Field 1", [{ x: 430, y: 120 }], { type: "checkbox" }),
+      ])
+    );
+
+    expect(fields).toHaveLength(2);
+    expect(fields.map((entry) => entry.type)).toEqual(["checkbox", "checkbox"]);
   });
 
   it("skips fields of a type that cannot be filled", () => {
@@ -160,80 +250,6 @@ describe("buildFieldsFromInspection", () => {
     );
 
     expect(fields).toEqual([]);
-  });
-});
-
-describe("isSharedWidgetField", () => {
-  it("flags a field that draws more than one box", () => {
-    const inspection = inspectionOf([acro("shared", [{ y: 300 }, { y: 280 }])]);
-    const [field] = buildFieldsFromInspection(inspection);
-
-    expect(isSharedWidgetField(field, inspection)).toBe(true);
-  });
-
-  it("does not flag an ordinary single-box field", () => {
-    const inspection = inspectionOf([acro("single", [{}])]);
-    const [field] = buildFieldsFromInspection(inspection);
-
-    expect(isSharedWidgetField(field, inspection)).toBe(false);
-  });
-});
-
-describe("splitSharedField", () => {
-  // The defect this exists for: one PDF field owning two boxes on unrelated rows
-  // can only ever hold one answer between them.
-  const inspection = inspectionOf([
-    acro("TANF and SNAP", [
-      { y: 317, x: 413, width: 11, height: 7 },
-      { y: 296, x: 413, width: 11, height: 7 },
-    ]),
-  ]);
-
-  it("replaces the shared field with one independent field per box", () => {
-    const fields = buildFieldsFromInspection(inspection);
-    const split = splitSharedField(fields, fields[0].key, inspection);
-
-    expect(split).toHaveLength(2);
-    expect(new Set(split.map((f) => f.key)).size).toBe(2);
-  });
-
-  it("anchors each new field to its own rectangle from the PDF", () => {
-    const fields = buildFieldsFromInspection(inspection);
-    const split = splitSharedField(fields, fields[0].key, inspection);
-
-    expect(split[0].placement).toMatchObject({ kind: "overlay", y: 317 });
-    expect(split[1].placement).toMatchObject({ kind: "overlay", y: 296 });
-  });
-
-  it("makes the split fields checkboxes so each box gets its own answer", () => {
-    const fields = buildFieldsFromInspection(inspection);
-    const split = splitSharedField(fields, fields[0].key, inspection);
-
-    expect(split.every((f) => f.type === "checkbox")).toBe(true);
-  });
-
-  it("renumbers the surviving fields", () => {
-    const withNeighbour = inspectionOf([
-      ...inspection.acroFields,
-      acro("after", [{ y: 100, width: 50, height: 10 }]),
-    ]);
-    const fields = buildFieldsFromInspection(withNeighbour);
-    const split = splitSharedField(fields, fields[0].key, withNeighbour);
-
-    expect(split.map((f) => f.order)).toEqual([0, 1, 2]);
-  });
-
-  it("leaves an ordinary field untouched", () => {
-    const single = inspectionOf([acro("single", [{}])]);
-    const fields = buildFieldsFromInspection(single);
-
-    expect(splitSharedField(fields, fields[0].key, single)).toBe(fields);
-  });
-
-  it("ignores an unknown key", () => {
-    const fields = buildFieldsFromInspection(inspection);
-
-    expect(splitSharedField(fields, "nope", inspection)).toBe(fields);
   });
 });
 
@@ -254,12 +270,13 @@ describe("annotationsForFields", () => {
     expect(annotations.map((a) => a.highlighted)).toEqual([false, true]);
   });
 
-  it("uses an overlay field's own rectangle", () => {
-    const inspection = inspectionOf([acro("shared", [{ y: 317 }, { y: 296 }])]);
+  it("uses one field number for every option in a radio group", () => {
+    const inspection = inspectionOf([
+      acro("choice", [{ y: 317 }, { y: 296 }], { type: "radio", options: ["Yes", "No"] }),
+    ]);
     const fields = buildFieldsFromInspection(inspection);
-    const split = splitSharedField(fields, fields[0].key, inspection);
 
-    expect(annotationsForFields(split, inspection).map((a) => a.y)).toEqual([317, 296]);
+    expect(annotationsForFields(fields, inspection).map((a) => a.label)).toEqual(["1", "1"]);
   });
 
   it("skips a field with no drawable box", () => {
@@ -267,16 +284,5 @@ describe("annotationsForFields", () => {
     const fields = buildFieldsFromInspection(inspection);
 
     expect(annotationsForFields(fields, inspection)).toEqual([]);
-  });
-});
-
-describe("reindex", () => {
-  it("renumbers order to match array position", () => {
-    const inspection = inspectionOf([acro("a", [{ y: 700 }]), acro("b", [{ y: 500 }])]);
-    const fields = buildFieldsFromInspection(inspection);
-    const reversed = reindex([fields[1], fields[0]]);
-
-    expect(reversed.map((f) => f.order)).toEqual([0, 1]);
-    expect(reversed[0].label).toBe("b");
   });
 });

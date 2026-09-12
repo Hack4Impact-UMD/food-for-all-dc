@@ -106,42 +106,49 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           {isEditing ? (
             <Box sx={{ minHeight: 120, width: "100%" }}>{renderField("tefapCertDate", "date")}</Box>
           ) : (
-            <Typography
-              sx={{
-                fontWeight: 600,
-                fontSize: "1.15rem",
-                lineHeight: 1,
-                mt: 0,
-                mb: 0,
-                pt: 0,
-                textAlign: "left",
-                pl: 0,
-              }}
-            >
-              {tefapCertDisplay}
-            </Typography>
-          )}
-          {clientId && !isEditing && (
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<AssignmentIcon />}
-              onClick={() => setTefapOpen(true)}
-              sx={{
-                mt: 1,
-                textTransform: "none",
-                fontWeight: 600,
-                whiteSpace: "nowrap",
-                color: "var(--color-primary)",
-                borderColor: "var(--color-primary)",
-                "&:hover": {
-                  borderColor: "var(--color-primary-hover)",
-                  backgroundColor: "var(--color-background-green-tint)",
-                },
-              }}
-            >
-              TEFAP form
-            </Button>
+            <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+              <Typography
+                sx={{
+                  fontWeight: 600,
+                  fontSize: "1.15rem",
+                  lineHeight: 1,
+                  mt: 0,
+                  mb: 0,
+                  pt: 0,
+                  textAlign: "left",
+                  pl: 0,
+                }}
+              >
+                {tefapCertDisplay}
+              </Typography>
+              {clientId && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AssignmentIcon fontSize="small" />}
+                  onClick={() => setTefapOpen(true)}
+                  sx={{
+                    width: "auto",
+                    minWidth: 0,
+                    minHeight: 30,
+                    px: 1.25,
+                    py: 0.25,
+                    textTransform: "none",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    color: "var(--color-primary)",
+                    borderColor: "var(--color-primary)",
+                    "&:hover": {
+                      borderColor: "var(--color-primary-hover)",
+                      backgroundColor: "var(--color-background-green-tint)",
+                    },
+                  }}
+                >
+                  TEFAP form
+                </Button>
+              )}
+            </Box>
           )}
         </Box>
         <Box>
