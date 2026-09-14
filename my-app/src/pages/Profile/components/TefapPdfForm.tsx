@@ -22,10 +22,10 @@ import type {
 } from "../../../types/tefap-types";
 import { collectRadioControlValues, isTefapTruthy } from "../../../utils/tefapFields";
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
+// Served from public/ by scripts/copy-pdf-worker.mjs rather than bundled: the
+// production build runs bundled workers through Babel, which leaves them with
+// unresolvable imports.
+pdfjs.GlobalWorkerOptions.workerSrc = `${process.env.PUBLIC_URL}/pdfjs/pdf.worker-${pdfjs.version}.min.mjs`;
 
 interface TefapPdfFormProps {
   bytes: Uint8Array;
