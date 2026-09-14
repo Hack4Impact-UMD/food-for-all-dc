@@ -34,7 +34,9 @@
     "react-virtuoso": "^4.14.1"
   },
   "scripts": {
+    "prestart": "node scripts/copy-pdf-worker.mjs",
     "start": "react-scripts start",
+    "prebuild": "node scripts/copy-pdf-worker.mjs",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "test:ci": "react-scripts test --watchAll=false",
@@ -47,6 +49,7 @@
     "build:profile": "npm run build -- --profile",
     "emulators": "firebase emulators:start --only auth,firestore,storage",
     "seed:emulators": "node scripts/seed-emulators.mjs",
+    "prestart:emulated": "node scripts/copy-pdf-worker.mjs",
     "start:emulated": "REACT_APP_USE_EMULATORS=true react-scripts start",
     "check:rules": "node scripts/check-storage-rules.mjs"
   },
