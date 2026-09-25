@@ -195,10 +195,14 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ actor, onStepChange
     showSuccess,
   ]);
 
-  const flaggedFieldNames = new Set(inspection?.diagnostics.flatMap((diagnostic) => diagnostic.fieldNames));
-  const choiceFields = inspection?.acroFields.filter(
-    (field) => flaggedFieldNames.has(field.name) && (field.type === "radio" || field.type === "checkbox")
-  ) ?? [];
+  const flaggedFieldNames = new Set(
+    inspection?.diagnostics.flatMap((diagnostic) => diagnostic.fieldNames)
+  );
+  const choiceFields =
+    inspection?.acroFields.filter(
+      (field) =>
+        flaggedFieldNames.has(field.name) && (field.type === "radio" || field.type === "checkbox")
+    ) ?? [];
   const hasPdfWarnings = Boolean(inspection?.diagnostics.length);
   const pdfWarnings = hasPdfWarnings && (
     <Stack spacing={2}>
@@ -211,9 +215,12 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ actor, onStepChange
           </AlertTitle>
           <Typography variant="body2">
             <strong>Issue: </strong>
-            {diagnostic.code === "shared-widgets" && "The PDF links these boxes: checking one also checks the others."}
-            {diagnostic.code === "uninformative-name" && "These fields have unclear names inside the PDF itself."}
-            {diagnostic.code === "no-acroform-fields" && "There are no fillable fields in this PDF."}
+            {diagnostic.code === "shared-widgets" &&
+              "The PDF links these boxes: checking one also checks the others."}
+            {diagnostic.code === "uninformative-name" &&
+              "These fields have unclear names inside the PDF itself."}
+            {diagnostic.code === "no-acroform-fields" &&
+              "There are no fillable fields in this PDF."}
           </Typography>
           <Typography variant="body2" sx={{ mt: 0.5 }}>
             <strong>Fix in the PDF: </strong>
@@ -235,14 +242,14 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ actor, onStepChange
         <Alert severity="warning">
           <AlertTitle>Check how many answers each question allows</AlertTitle>
           <Typography variant="body2">
-            Some questions allow one answer; others allow several. Follow the
-            instructions on the PDF and check that you can select the allowed
-            answers without changing a different question.
+            Some questions allow one answer; others allow several. Follow the instructions on the
+            PDF and check that you can select the allowed answers without changing a different
+            question.
           </Typography>
           <Typography variant="body2" sx={{ mt: 0.5 }}>
             <strong>If the PDF behaves differently: </strong>
-            Ask whoever supplied the form to fix the original PDF, then upload
-            the corrected copy. This check does not mean the form is broken.
+            Ask whoever supplied the form to fix the original PDF, then upload the corrected copy.
+            This check does not mean the form is broken.
           </Typography>
           <Box component="details" sx={{ mt: 1 }}>
             <Box component="summary" sx={{ cursor: "pointer" }}>
@@ -251,7 +258,8 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ actor, onStepChange
             {choiceFields.map((field) => (
               <Box key={field.name} sx={{ mt: 1, overflowWrap: "anywhere" }}>
                 <Typography variant="body2">
-                  PDF field to check: {field.name}{field.options?.length ? `: ${field.options.join(", ")}` : ""}
+                  PDF field to check: {field.name}
+                  {field.options?.length ? `: ${field.options.join(", ")}` : ""}
                 </Typography>
                 <Typography variant="body2">
                   {field.type === "radio"
@@ -266,12 +274,10 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ actor, onStepChange
         </Alert>
       )}
       <Typography variant="body2">
-        Problems with the PDF must be fixed in the original file.
-        Changing labels here does not repair the PDF itself.
+        Problems with the PDF must be fixed in the original file. Changing labels here does not
+        repair the PDF itself.
       </Typography>
-      <Typography variant="body2">
-        Warnings only. You can still upload and save.
-      </Typography>
+      <Typography variant="body2">Warnings only. You can still upload and save.</Typography>
     </Stack>
   );
 

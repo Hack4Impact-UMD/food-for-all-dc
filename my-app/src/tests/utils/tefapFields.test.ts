@@ -30,33 +30,69 @@ describe("targetForTefapAnnotation", () => {
     pageCount: 1,
     pageSizes: [{ page: 1, width: 612, height: 792 }],
     diagnostics: [],
-    acroFields: [{
-      name: "assistance", type: "radio", options: ["Yes", "Yes_2"],
-      widgets: [
-        { page: 1, x: 410, y: 317, width: 11, height: 7 },
-        { page: 1, x: 410, y: 296, width: 11, height: 7 },
-      ],
-    }],
+    acroFields: [
+      {
+        name: "assistance",
+        type: "radio",
+        options: ["Yes", "Yes_2"],
+        widgets: [
+          { page: 1, x: 410, y: 317, width: 11, height: 7 },
+          { page: 1, x: 410, y: 296, width: 11, height: 7 },
+        ],
+      },
+    ],
   };
 
   it("matches export options by widget rather than PDF.js appearance values", () => {
     const mapped = field("assistance", { type: "radio", options: ["Yes", "Yes_2"] });
-    expect(targetForTefapAnnotation({
-      id: "second", page: 1, fieldName: "assistance", buttonValue: "1",
-      rect: [410, 296, 421, 303],
-    }, [mapped], inspection)).toEqual({ field: mapped, option: "Yes_2" });
+    expect(
+      targetForTefapAnnotation(
+        {
+          id: "second",
+          page: 1,
+          fieldName: "assistance",
+          buttonValue: "1",
+          rect: [410, 296, 421, 303],
+        },
+        [mapped],
+        inspection
+      )
+    ).toEqual({ field: mapped, option: "Yes_2" });
   });
 
   it("does not let an explicit mapping claim other widgets with the same PDF field name", () => {
     const mapped = field("first", {
-      type: "radio", placement: { kind: "acroform", pdfFieldName: "assistance" },
-      radioOptions: [{ value: "Yes", placement: {
-        kind: "overlay", page: 1, x: 410, y: 317, width: 11, height: 7, fontSize: 7, align: "center",
-      } }],
+      type: "radio",
+      placement: { kind: "acroform", pdfFieldName: "assistance" },
+      radioOptions: [
+        {
+          value: "Yes",
+          placement: {
+            kind: "overlay",
+            page: 1,
+            x: 410,
+            y: 317,
+            width: 11,
+            height: 7,
+            fontSize: 7,
+            align: "center",
+          },
+        },
+      ],
     });
-    expect(targetForTefapAnnotation({
-      id: "second", page: 1, fieldName: "assistance", buttonValue: "1", rect: [410, 296, 421, 303],
-    }, [mapped], inspection)).toBeUndefined();
+    expect(
+      targetForTefapAnnotation(
+        {
+          id: "second",
+          page: 1,
+          fieldName: "assistance",
+          buttonValue: "1",
+          rect: [410, 296, 421, 303],
+        },
+        [mapped],
+        inspection
+      )
+    ).toBeUndefined();
   });
 });
 

@@ -73,13 +73,17 @@ describe("FormUploadDialog warnings", () => {
       title: "Check how many answers each question allows",
       inspection: {
         ...cleanInspection,
-        acroFields: [{
-          name: "undefined",
-          type: "radio",
-          options: ["No", "No_2"],
-          widgets: [widget, { ...widget, y: 120 }],
-        }],
-        diagnostics: [{ code: "uninformative-name", fieldNames: ["undefined"], message: "Unclear" }],
+        acroFields: [
+          {
+            name: "undefined",
+            type: "radio",
+            options: ["No", "No_2"],
+            widgets: [widget, { ...widget, y: 120 }],
+          },
+        ],
+        diagnostics: [
+          { code: "uninformative-name", fieldNames: ["undefined"], message: "Unclear" },
+        ],
       },
       detail: "PDF field to check: undefined: No, No_2",
     },
@@ -112,29 +116,39 @@ describe("FormUploadDialog warnings", () => {
     },
   ];
 
-  it.each(cases)("shows '$title' through preview without blocking save", async ({ title, inspection, detail }) => {
-    const { onSaved, file } = await upload(inspection);
-    expect(screen.getByText(title)).toBeTruthy();
-    expect(screen.getByText(detail)).toBeTruthy();
-    expect(screen.getByText(/Problems with the PDF must be fixed in the original file/)).toBeTruthy();
-    expect(screen.getByText(/Changing labels here does not repair the PDF itself/)).toBeTruthy();
-    expect(screen.getByText(/Warnings only. You can still upload and save./)).toBeTruthy();
+  it.each(cases)(
+    "shows '$title' through preview without blocking save",
+    async ({ title, inspection, detail }) => {
+      const { onSaved, file } = await upload(inspection);
+      expect(screen.getByText(title)).toBeTruthy();
+      expect(screen.getByText(detail)).toBeTruthy();
+      expect(
+        screen.getByText(/Problems with the PDF must be fixed in the original file/)
+      ).toBeTruthy();
+      expect(screen.getByText(/Changing labels here does not repair the PDF itself/)).toBeTruthy();
+      expect(screen.getByText(/Warnings only. You can still upload and save./)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove mapped fields" }));
-    expect(screen.getByText(title)).toBeTruthy();
-    const preview = screen.getByRole("button", { name: "Preview" }) as HTMLButtonElement;
-    expect(preview.disabled).toBe(false);
-    fireEvent.click(preview);
+      fireEvent.click(screen.getByRole("button", { name: "Remove mapped fields" }));
+      expect(screen.getByText(title)).toBeTruthy();
+      const preview = screen.getByRole("button", { name: "Preview" }) as HTMLButtonElement;
+      expect(preview.disabled).toBe(false);
+      fireEvent.click(preview);
 
-    const save = await screen.findByRole("button", { name: "Save template" }) as HTMLButtonElement;
-    expect(screen.getByText(title)).toBeTruthy();
-    expect(save.disabled).toBe(false);
-    fireEvent.click(save);
+      const save = (await screen.findByRole("button", {
+        name: "Save template",
+      })) as HTMLButtonElement;
+      expect(screen.getByText(title)).toBeTruthy();
+      expect(save.disabled).toBe(false);
+      fireEvent.click(save);
 
-    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
-    expect(mockCreateForm).toHaveBeenCalledWith(expect.objectContaining({ file, name: "template" }), actor);
-    expect(mockShowError).not.toHaveBeenCalled();
-  });
+      await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+      expect(mockCreateForm).toHaveBeenCalledWith(
+        expect.objectContaining({ file, name: "template" }),
+        actor
+      );
+      expect(mockShowError).not.toHaveBeenCalled();
+    }
+  );
 
   it("does not warn for a clearly named text-only PDF", async () => {
     await upload(cleanInspection);
@@ -147,7 +161,9 @@ describe("FormUploadDialog warnings", () => {
     expect(screen.getByText(/without changing a different question/)).toBeTruthy();
     expect(screen.getByText(/Ask whoever supplied the form to fix the original PDF/)).toBeTruthy();
     expect(screen.getByText(/This check does not mean the form is broken/)).toBeTruthy();
-    expect(screen.getByText(cases[0].title).closest('[role="alert"]')?.className).toContain("MuiAlert-standardWarning");
+    expect(screen.getByText(cases[0].title).closest('[role="alert"]')?.className).toContain(
+      "MuiAlert-standardWarning"
+    );
     const details = screen.getByText("Details for the person fixing the form").closest("details")!;
     expect(details.open).toBe(false);
     fireEvent.click(screen.getByText("Details for the person fixing the form"));
@@ -159,12 +175,14 @@ describe("FormUploadDialog warnings", () => {
   it("does not warn about unflagged single-choice options", async () => {
     await upload({
       ...cleanInspection,
-      acroFields: [{
-        name: "Preferred delivery time",
-        type: "radio",
-        options: ["Morning", "Afternoon", "Evening"],
-        widgets: [widget, { ...widget, y: 120 }, { ...widget, y: 140 }],
-      }],
+      acroFields: [
+        {
+          name: "Preferred delivery time",
+          type: "radio",
+          options: ["Morning", "Afternoon", "Evening"],
+          widgets: [widget, { ...widget, y: 120 }, { ...widget, y: 140 }],
+        },
+      ],
     });
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByText(/Warnings only/)).toBeNull();
@@ -186,7 +204,12 @@ describe("FormUploadDialog warnings", () => {
       ...cases[0].inspection,
       acroFields: [
         ...cases[0].inspection.acroFields,
-        { name: "Delivery time", type: "radio", options: ["Morning", "Evening"], widgets: [widget, { ...widget, y: 120 }] },
+        {
+          name: "Delivery time",
+          type: "radio",
+          options: ["Morning", "Evening"],
+          widgets: [widget, { ...widget, y: 120 }],
+        },
         { name: "Rice", type: "checkbox", widgets: [widget] },
         { name: "Beans", type: "checkbox", widgets: [{ ...widget, y: 140 }] },
       ],
@@ -206,7 +229,12 @@ describe("FormUploadDialog warnings", () => {
       ...cases[2].inspection,
       acroFields: [
         ...cases[2].inspection.acroFields,
-        { name: "Delivery time", type: "radio", options: ["Morning", "Evening"], widgets: [widget, { ...widget, y: 120 }] },
+        {
+          name: "Delivery time",
+          type: "radio",
+          options: ["Morning", "Evening"],
+          widgets: [widget, { ...widget, y: 120 }],
+        },
       ],
     });
     expect(screen.getByText(cases[2].detail)).toBeTruthy();
@@ -218,7 +246,9 @@ describe("FormUploadDialog warnings", () => {
     await upload(cases[1].inspection);
     expect(screen.getByText(/If these boxes should be selected separately/)).toBeTruthy();
     expect(screen.getByText("The PDF makes 2 boxes change together.")).toBeTruthy();
-    expect(screen.getByText(cases[1].title).closest('[role="alert"]')?.className).toContain("MuiAlert-standardWarning");
+    expect(screen.getByText(cases[1].title).closest('[role="alert"]')?.className).toContain(
+      "MuiAlert-standardWarning"
+    );
   });
 
   it("removes the previous PDF's warnings when a new file is chosen", async () => {

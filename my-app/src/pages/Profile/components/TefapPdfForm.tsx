@@ -15,10 +15,7 @@ import {
 import { Document, Page, pdfjs } from "react-pdf";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import "react-pdf/dist/Page/AnnotationLayer.css";
-import type {
-  TefapFormField,
-  TefapPdfInspection,
-} from "../../../types/tefap-types";
+import type { TefapFormField, TefapPdfInspection } from "../../../types/tefap-types";
 import {
   isTefapTruthy,
   targetForTefapAnnotation,
