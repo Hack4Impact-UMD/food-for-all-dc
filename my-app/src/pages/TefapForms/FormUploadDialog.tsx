@@ -195,6 +195,92 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ actor, onStepChange
     showSuccess,
   ]);
 
+  const flaggedFieldNames = new Set(
+    inspection?.diagnostics.flatMap((diagnostic) => diagnostic.fieldNames)
+  );
+  const choiceFields =
+    inspection?.acroFields.filter(
+      (field) =>
+        flaggedFieldNames.has(field.name) && (field.type === "radio" || field.type === "checkbox")
+    ) ?? [];
+  const hasPdfWarnings = Boolean(inspection?.diagnostics.length);
+  const pdfWarnings = hasPdfWarnings && (
+    <Stack spacing={2}>
+      {inspection?.diagnostics.map((diagnostic) => (
+        <Alert key={diagnostic.code} severity="warning">
+          <AlertTitle>
+            {diagnostic.code === "shared-widgets" && "Check boxes that share one answer"}
+            {diagnostic.code === "uninformative-name" && "Check unclear PDF field names"}
+            {diagnostic.code === "no-acroform-fields" && "This PDF is not fillable"}
+          </AlertTitle>
+          <Typography variant="body2">
+            <strong>Issue: </strong>
+            {diagnostic.code === "shared-widgets" &&
+              "The PDF links these boxes: checking one also checks the others."}
+            {diagnostic.code === "uninformative-name" &&
+              "These fields have unclear names inside the PDF itself."}
+            {diagnostic.code === "no-acroform-fields" &&
+              "There are no fillable fields in this PDF."}
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <strong>Fix in the PDF: </strong>
+            {diagnostic.code === "shared-widgets" &&
+              "If these boxes should be selected separately, ask the form's author to make them independent in the original PDF."}
+            {diagnostic.code === "uninformative-name" &&
+              "Rename these fields in the original PDF to match their questions."}
+            {diagnostic.code === "no-acroform-fields" &&
+              "Use a fillable copy, or continue and place fields manually."}
+          </Typography>
+          {diagnostic.fieldNames.length > 0 && (
+            <Typography variant="body2" sx={{ mt: 1, overflowWrap: "anywhere" }}>
+              Affected fields: {diagnostic.fieldNames.join(", ")}
+            </Typography>
+          )}
+        </Alert>
+      ))}
+      {choiceFields.length > 0 && (
+        <Alert severity="warning">
+          <AlertTitle>Check how many answers each question allows</AlertTitle>
+          <Typography variant="body2">
+            Some questions allow one answer; others allow several. Follow the instructions on the
+            PDF and check that you can select the allowed answers without changing a different
+            question.
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <strong>If the PDF behaves differently: </strong>
+            Ask whoever supplied the form to fix the original PDF, then upload the corrected copy.
+            This check does not mean the form is broken.
+          </Typography>
+          <Box component="details" sx={{ mt: 1 }}>
+            <Box component="summary" sx={{ cursor: "pointer" }}>
+              Details for the person fixing the form
+            </Box>
+            {choiceFields.map((field) => (
+              <Box key={field.name} sx={{ mt: 1, overflowWrap: "anywhere" }}>
+                <Typography variant="body2">
+                  PDF field to check: {field.name}
+                  {field.options?.length ? `: ${field.options.join(", ")}` : ""}
+                </Typography>
+                <Typography variant="body2">
+                  {field.type === "radio"
+                    ? "The PDF allows one selection among these choices."
+                    : field.widgets.length > 1
+                      ? `The PDF makes ${field.widgets.length} boxes change together.`
+                      : "This box can be selected independently of other boxes."}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </Alert>
+      )}
+      <Typography variant="body2">
+        Problems with the PDF must be fixed in the original file. Changing labels here does not
+        repair the PDF itself.
+      </Typography>
+      <Typography variant="body2">Warnings only. You can still upload and save.</Typography>
+    </Stack>
+  );
+
   return (
     <Box>
       <Stepper
@@ -321,49 +407,7 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ actor, onStepChange
               />
             </Stack>
 
-            {inspection.diagnostics
-              .map((diagnostic) => ({
-                ...diagnostic,
-                fieldNames: diagnostic.fieldNames.filter((fieldName) =>
-                  fields.some(
-                    (field) =>
-                      (field.placement.kind === "acroform" &&
-                        field.placement.pdfFieldName === fieldName) ||
-                      field.radioOptions?.some(
-                        (option) =>
-                          option.placement.kind === "acroform" &&
-                          option.placement.pdfFieldName === fieldName
-                      )
-                  )
-                ),
-              }))
-              .filter(
-                (diagnostic) =>
-                  diagnostic.fieldNames.length > 0 || diagnostic.code === "no-acroform-fields"
-              )
-              .map((diagnostic) => (
-                <Alert
-                  key={diagnostic.code}
-                  severity={diagnostic.code === "no-acroform-fields" ? "error" : "warning"}
-                >
-                  <AlertTitle>
-                    {diagnostic.code === "shared-widgets" &&
-                      "Some fields control more than one box"}
-                    {diagnostic.code === "uninformative-name" && "Some fields have unhelpful names"}
-                    {diagnostic.code === "no-acroform-fields" && "This PDF is not fillable"}
-                  </AlertTitle>
-                  {diagnostic.code === "shared-widgets" &&
-                    `${diagnostic.fieldNames.length} field(s) control more than one box on the page.`}
-                  {diagnostic.code === "uninformative-name" &&
-                    `${diagnostic.fieldNames.length} field(s) have auto-generated names that do not say what they are.`}
-                  {diagnostic.code === "no-acroform-fields" && diagnostic.message}
-                  {diagnostic.fieldNames.length > 0 && (
-                    <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
-                      {diagnostic.fieldNames.join(", ")}
-                    </Typography>
-                  )}
-                </Alert>
-              ))}
+            {pdfWarnings}
 
             <FieldMapper
               templateBytes={bytes}
@@ -377,6 +421,7 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ actor, onStepChange
 
       {step === 2 && (
         <Stack spacing={2}>
+          {pdfWarnings}
           <Alert severity="info">
             {exampleClient
               ? `Previewing the mapped form with ${exampleClient.firstName ?? ""} ${exampleClient.lastName ?? ""}, the first client on file.`

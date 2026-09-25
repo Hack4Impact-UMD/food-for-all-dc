@@ -15,12 +15,12 @@ import {
 import { Document, Page, pdfjs } from "react-pdf";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import "react-pdf/dist/Page/AnnotationLayer.css";
-import type {
-  TefapFieldPlacement,
-  TefapFormField,
-  TefapPdfInspection,
-} from "../../../types/tefap-types";
-import { collectRadioControlValues, isTefapTruthy } from "../../../utils/tefapFields";
+import type { TefapFormField, TefapPdfInspection } from "../../../types/tefap-types";
+import {
+  isTefapTruthy,
+  targetForTefapAnnotation,
+  type TefapNativeAnnotation,
+} from "../../../utils/tefapFields";
 
 // Served from public/ by scripts/copy-pdf-worker.mjs rather than bundled: the
 // production build runs bundled workers through Babel, which leaves them with
@@ -33,14 +33,6 @@ interface TefapPdfFormProps {
   fields: TefapFormField[];
   values: Map<string, string | boolean>;
   onChange: (key: string, value: string | boolean) => void;
-}
-
-interface NativeAnnotation {
-  id: string;
-  page: number;
-  fieldName?: string;
-  buttonValue?: string;
-  rect?: number[];
 }
 
 interface NativeTarget {
@@ -65,47 +57,6 @@ const annotationControl = (
   return annotationElement?.querySelector("input, textarea, select") ?? null;
 };
 
-const rectMatchesPlacement = (
-  annotation: NativeAnnotation,
-  placement: TefapFieldPlacement
-): boolean => {
-  if (placement.kind === "acroform") {
-    return annotation.fieldName === placement.pdfFieldName;
-  }
-
-  if (annotation.page !== placement.page || !annotation.rect || annotation.rect.length < 4) {
-    return false;
-  }
-
-  const [x1, y1, x2, y2] = annotation.rect;
-  const tolerance = 2;
-  return (
-    Math.abs(x1 - placement.x) <= tolerance &&
-    Math.abs(y1 - placement.y) <= tolerance &&
-    Math.abs(x2 - (placement.x + placement.width)) <= tolerance &&
-    Math.abs(y2 - (placement.y + placement.height)) <= tolerance
-  );
-};
-
-const targetForAnnotation = (
-  annotation: NativeAnnotation,
-  fields: TefapFormField[]
-): NativeTarget | undefined => {
-  for (const field of fields) {
-    const radioOption = field.radioOptions?.find((option) =>
-      rectMatchesPlacement(annotation, option.placement)
-    );
-    if (radioOption) return { field, option: radioOption.value };
-    if (rectMatchesPlacement(annotation, field.placement)) {
-      return {
-        field,
-        option: field.type === "radio" ? annotation.buttonValue : undefined,
-      };
-    }
-  }
-  return undefined;
-};
-
 const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
   bytes,
   inspection,
@@ -115,7 +66,8 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const documentRef = useRef<PDFDocumentProxy | null>(null);
-  const annotationsRef = useRef<Map<string, NativeAnnotation>>(new Map());
+  const annotationsRef = useRef<Map<string, TefapNativeAnnotation>>(new Map());
+  const inspectionRef = useRef(inspection);
   const fieldsRef = useRef(fields);
   const valuesRef = useRef(values);
   const onChangeRef = useRef(onChange);
@@ -124,6 +76,7 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
   const pdfData = useMemo(() => ({ data: bytes.slice() }), [bytes]);
 
   fieldsRef.current = fields;
+  inspectionRef.current = inspection;
   valuesRef.current = values;
   onChangeRef.current = onChange;
 
@@ -144,7 +97,7 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
     if (!container) return;
 
     for (const [id, annotation] of annotationsRef.current) {
-      const target = targetForAnnotation(annotation, fieldsRef.current);
+      const target = targetForTefapAnnotation(annotation, fieldsRef.current, inspectionRef.current);
       const annotationElement = container.querySelector<HTMLElement>(
         `[data-element-id="${CSS.escape(id)}"]`
       );
@@ -159,6 +112,14 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
 
       if (section) section.hidden = target.field.hidden === true;
       if (!element) continue;
+
+      if (target.field.type === "radio" && element instanceof HTMLInputElement) {
+        element.type = "radio";
+        element.name = `tefap-${target.field.key}`;
+        element.value = target.option ?? "";
+        element.checked = valuesRef.current.get(target.field.key) === target.option;
+        element.setAttribute("aria-label", `${target.field.label}: ${target.option ?? ""}`);
+      }
 
       const readOnly = target.field.readOnly === true;
       if (
@@ -193,7 +154,7 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
     if (!document) return;
 
     for (const [id, annotation] of annotationsRef.current) {
-      const target = targetForAnnotation(annotation, fieldsRef.current);
+      const target = targetForTefapAnnotation(annotation, fieldsRef.current, inspectionRef.current);
       if (!target) continue;
 
       const value = valuesRef.current.get(target.field.key);
@@ -210,6 +171,12 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
     }
   }, []);
 
+  useEffect(() => {
+    if (!annotationsReady) return;
+    seedAnnotationStorage();
+    applyFieldState();
+  }, [annotationsReady, fields, values, seedAnnotationStorage, applyFieldState]);
+
   const handleDocumentLoad = useCallback(
     async (document: PDFDocumentProxy) => {
       documentRef.current = document;
@@ -221,7 +188,7 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
           const page = await document.getPage(pageNumber);
           const annotations = (await page.getAnnotations({
             intent: "display",
-          })) as NativeAnnotation[];
+          })) as TefapNativeAnnotation[];
           return annotations.map((annotation) => ({ ...annotation, page: pageNumber }));
         })
       );
@@ -241,7 +208,7 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
   const fallbackFields = useMemo(() => {
     if (!annotationsReady) return [];
     const targets = Array.from(annotationsRef.current.values())
-      .map((annotation) => targetForAnnotation(annotation, fields))
+      .map((annotation) => targetForTefapAnnotation(annotation, fields, inspection))
       .filter((target): target is NativeTarget => Boolean(target));
 
     return fields.filter((field) => {
@@ -252,7 +219,7 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
       const options = field.radioOptions?.map((option) => option.value) ?? field.options ?? [];
       return options.some((option) => !fieldTargets.some((target) => target.option === option));
     });
-  }, [annotationsReady, fields]);
+  }, [annotationsReady, fields, inspection]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -274,29 +241,15 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
       const annotation = id ? annotationsRef.current.get(id) : undefined;
       if (!annotation) return;
 
-      const target = targetForAnnotation(annotation, fieldsRef.current);
+      const target = targetForTefapAnnotation(annotation, fieldsRef.current, inspectionRef.current);
       if (!target || target.field.hidden || target.field.readOnly) return;
 
       if (target.field.type === "radio") {
         if (!(element instanceof HTMLInputElement)) return;
-
-        const nextValues = collectRadioControlValues(
-          Array.from(annotationsRef.current).flatMap(([radioId, radioAnnotation]) => {
-            const radioTarget = targetForAnnotation(radioAnnotation, fieldsRef.current);
-            if (radioTarget?.field.type !== "radio") return [];
-            const radioElement = annotationControl(container, radioId);
-            if (!(radioElement instanceof HTMLInputElement)) return [];
-            return [
-              {
-                fieldKey: radioTarget.field.key,
-                option: radioTarget.option ?? radioAnnotation.buttonValue ?? radioElement.value,
-                checked: radioElement.checked,
-              },
-            ];
-          })
-        );
-
-        nextValues.forEach((value, key) => onChangeRef.current(key, value));
+        event.stopPropagation();
+        if (element.checked && target.option !== undefined) {
+          onChangeRef.current(target.field.key, target.option);
+        }
       } else if (target.field.type === "checkbox" && element instanceof HTMLInputElement) {
         onChangeRef.current(target.field.key, element.checked);
       } else {
@@ -304,11 +257,11 @@ const TefapPdfForm: React.FC<TefapPdfFormProps> = ({
       }
     };
 
-    container.addEventListener("input", handleNativeInput);
-    container.addEventListener("change", handleNativeInput);
+    container.addEventListener("input", handleNativeInput, true);
+    container.addEventListener("change", handleNativeInput, true);
     return () => {
-      container.removeEventListener("input", handleNativeInput);
-      container.removeEventListener("change", handleNativeInput);
+      container.removeEventListener("input", handleNativeInput, true);
+      container.removeEventListener("change", handleNativeInput, true);
     };
   }, []);
 
