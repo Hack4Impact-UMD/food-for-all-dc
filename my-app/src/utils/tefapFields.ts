@@ -4,7 +4,55 @@
 // Kept separate from tefapPdf so it carries no PDF dependency, and separate
 // from tefapPrefill so it knows nothing about client profiles.
 
-import type { TefapFieldValue, TefapFormField, TefapPdfInspection } from "../types/tefap-types";
+import type { TefapFieldPlacement, TefapFieldValue, TefapFormField, TefapPdfInspection } from "../types/tefap-types";
+
+export interface TefapNativeAnnotation {
+  id: string;
+  page: number;
+  fieldName?: string;
+  buttonValue?: string;
+  rect?: number[];
+}
+
+const matchesPlacement = (
+  annotation: TefapNativeAnnotation,
+  placement: TefapFieldPlacement
+): boolean => {
+  if (placement.kind === "acroform") return annotation.fieldName === placement.pdfFieldName;
+  if (annotation.page !== placement.page || !annotation.rect || annotation.rect.length < 4) {
+    return false;
+  }
+  const [left, bottom, right, top] = annotation.rect;
+  return (
+    Math.abs(left - placement.x) <= 2 &&
+    Math.abs(bottom - placement.y) <= 2 &&
+    Math.abs(right - placement.x - placement.width) <= 2 &&
+    Math.abs(top - placement.y - placement.height) <= 2
+  );
+};
+
+export const targetForTefapAnnotation = (
+  annotation: TefapNativeAnnotation,
+  fields: TefapFormField[],
+  inspection: TefapPdfInspection
+): { field: TefapFormField; option?: string } | undefined => {
+  for (const field of fields) {
+    if (field.radioOptions) {
+      const option = field.radioOptions.find((entry) => matchesPlacement(annotation, entry.placement));
+      if (option) return { field, option: option.value };
+      continue;
+    }
+    if (!matchesPlacement(annotation, field.placement)) continue;
+    if (field.type !== "radio") return { field };
+    const acro = inspection.acroFields.find((entry) => entry.name === annotation.fieldName);
+    const widgetIndex = acro?.widgets.findIndex((widget) =>
+      matchesPlacement(annotation, { ...widget, kind: "overlay", fontSize: 10, align: "center" })
+    ) ?? -1;
+    const option = widgetIndex >= 0 ? acro?.options?.[widgetIndex] : undefined;
+    return { field, option: option ?? annotation.buttonValue };
+  }
+  return undefined;
+};
 
 export interface TefapValidationIssue {
   fieldKey: string;
