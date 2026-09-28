@@ -1859,7 +1859,7 @@ const Profile = () => {
               className="field-descriptor"
               sx={{ fontWeight: 700, fontSize: "1rem", mb: "10px" }}
             >
-              DIETARY PREFERENCES
+              PREFERRED FOOD
             </Typography>
             {isEditing ? (
               <CustomTextField
