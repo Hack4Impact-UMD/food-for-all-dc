@@ -1863,7 +1863,7 @@ const Profile = () => {
             </Typography>
             {isEditing ? (
               <CustomTextField
-                name="dietaryPreferences"
+                name="Please specify preferred food (e.g. fresh produce, sliced cheese)."
                 value={
                   typeof clientProfile.deliveryDetails?.dietaryRestrictions?.dietaryPreferences ===
                   "string"
