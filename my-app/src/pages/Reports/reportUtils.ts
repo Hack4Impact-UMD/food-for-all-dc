@@ -82,7 +82,7 @@ export interface ReferralReportClient {
   firstName: string;
   lastName: string;
   referredDate: string;
-  firstDeliveryDate: string;
+  startDate: string;
 }
 
 export type ReferralAgenciesReportData = Record<string, ReferralReportClient[]>;
@@ -420,13 +420,11 @@ const incrementTagCounts = (report: SummaryData, client: ReportClientRecord) => 
 export const buildSummaryReportData = ({
   clients,
   servedEvents,
-  firstDeliveriesByClientId,
   start,
   end,
 }: {
   clients: ReportClientRecord[];
   servedEvents: ReportDeliveryRecord[];
-  firstDeliveriesByClientId: Map<string, ReportDeliveryRecord>;
   start: DateTime;
   end: DateTime;
 }): SummaryReportResult => {
@@ -475,18 +473,15 @@ export const buildSummaryReportData = ({
     demographics["Total Adults"].value += firstInPeriodSnapshot.adults;
     demographics["Total Children"].value += firstInPeriodSnapshot.children;
 
-    const firstEverDelivery = firstDeliveriesByClientId.get(clientId);
-    if (firstEverDelivery && isDateWithinRange(firstEverDelivery.deliveryDate, start, end)) {
-      const { snapshot: firstEverSnapshot, usedLegacySnapshotFallback: usedFirstEverFallback } =
-        resolveHouseholdSnapshot(firstEverDelivery, client);
-
+    const clientStartDate = normalizeReportDate(client.startDate);
+    if (clientStartDate && isDateWithinRange(clientStartDate, start, end)) {
       basic["New Households"].value += 1;
-      basic["New People"].value += firstEverSnapshot.total;
-      demographics["New Seniors"].value += firstEverSnapshot.seniors;
-      demographics["New Adults"].value += firstEverSnapshot.adults;
-      demographics["New Children"].value += firstEverSnapshot.children;
+      basic["New People"].value += firstInPeriodSnapshot.total;
+      demographics["New Seniors"].value += firstInPeriodSnapshot.seniors;
+      demographics["New Adults"].value += firstInPeriodSnapshot.adults;
+      demographics["New Children"].value += firstInPeriodSnapshot.children;
 
-      if (firstEverSnapshot.adults === 1 && firstEverSnapshot.children > 0) {
+      if (firstInPeriodSnapshot.adults === 1 && firstInPeriodSnapshot.children > 0) {
         demographics["New Single Parents"].value += 1;
       }
 
@@ -498,8 +493,6 @@ export const buildSummaryReportData = ({
       if (referralSource) {
         referralAgencies.add(referralSource);
       }
-
-      usedLegacySnapshotFallback ||= usedFirstEverFallback;
     }
 
     if (hasTruthyCondition(client.physicalAilments)) {
@@ -579,12 +572,10 @@ export const buildClientReportData = (
 
 export const buildReferralAgenciesReportData = ({
   clients,
-  firstDeliveriesByClientId,
   start,
   end,
 }: {
   clients: ReportClientRecord[];
-  firstDeliveriesByClientId: Map<string, ReportDeliveryRecord>;
   start: DateTime;
   end: DateTime;
 }): ReferralAgenciesReportData => {
@@ -592,12 +583,12 @@ export const buildReferralAgenciesReportData = ({
 
   [...clients].sort(compareClients).forEach((client) => {
     const referralSource = getReferralSourceLabel(client);
-    const firstDelivery = firstDeliveriesByClientId.get(client.uid);
+    const clientStartDate = normalizeReportDate(client.startDate);
 
     if (
       !referralSource ||
-      !firstDelivery ||
-      !isDateWithinRange(firstDelivery.deliveryDate, start, end)
+      !clientStartDate ||
+      !isDateWithinRange(clientStartDate, start, end)
     ) {
       return;
     }
@@ -608,7 +599,7 @@ export const buildReferralAgenciesReportData = ({
       firstName: client.firstName,
       lastName: client.lastName,
       referredDate: client.referredDate ?? "",
-      firstDeliveryDate: firstDelivery.deliveryDate.toISODate() ?? "",
+      startDate: clientStartDate.toISODate() ?? "",
     });
     groupedByAgency.set(referralSource, agencyClients);
   });
