@@ -19,6 +19,8 @@ from threading import Lock
 # For spreadsheet ZIP fallback
 import pandas as pd
 from dotenv import load_dotenv
+from address_utils import build_dc_geocoding_address, canonicalize_dc_street_address
+from client_dates import EASTERN, normalize_client_dates, to_calendar_date
 
 # Load environment variables from my-app/.env
 env_path = os.path.join(os.path.dirname(__file__), "..", "my-app", ".env")
@@ -46,6 +48,12 @@ CLIENT_DATABASE_FILE_PATH = os.path.join("ETL", "FFA_CLIENT_DATABASE_JULY2026.xl
 CLIENT_DATABASE_SHEET_NAME = "Current Deliveries"
 SATURDAY_DELIVERY_ROW_START = 3279
 SATURDAY_DELIVERY_ROW_END = 3464
+DC_WARD_SERVICE_URL = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query"
+
+
+def normalize_ward_value(value: Any) -> str:
+	match = re.search(r"\b(?:Ward\s*)?([1-8])\b", str(value or ""), re.IGNORECASE)
+	return match.group(1) if match else ""
 
 
 def normalize_client_database_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -74,7 +82,7 @@ def normalize_client_database_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 	return df
 
 
-TEFAP_FY26_CERT_DATE = "03/15/2026"
+TEFAP_FY26_CERT_DATE = date(2026, 3, 15)
 
 
 def normalize_tefap_cert_value(value):
@@ -95,7 +103,7 @@ def normalize_tefap_cert_value(value):
 
 def normalize_tefap_cert_date(value):
 	"""Convert the TEFAP FY26 boolean source column to the profile cert date."""
-	return TEFAP_FY26_CERT_DATE if normalize_tefap_cert_value(value) else ""
+	return TEFAP_FY26_CERT_DATE if normalize_tefap_cert_value(value) else None
 
 
 def normalize_phone_for_save(value: Any) -> str:
@@ -213,7 +221,40 @@ def _paced_geocode_get(url: str, timeout: int = 10) -> requests.Response:
 		_GEOCODE_LAST_REQUEST_TS = time.monotonic()
 		return response
 
-def geocode_address_google(address, city, state, zip_code):
+
+def get_ward_from_coordinates(coordinates: Optional[List[float]]) -> Optional[str]:
+	"""Resolve a DC Ward from [latitude, longitude] without changing Firestore."""
+	if not coordinates or len(coordinates) != 2:
+		return None
+
+	lat, lng = coordinates
+	if not all(isinstance(value, (int, float)) for value in (lat, lng)):
+		return None
+
+	params = {
+		"f": "json",
+		"geometry": f"{lng},{lat}",
+		"geometryType": "esriGeometryPoint",
+		"inSR": "4326",
+		"spatialRel": "esriSpatialRelIntersects",
+		"outFields": "NAME,WARD",
+		"returnGeometry": "false",
+	}
+	try:
+		response = _paced_geocode_get(
+			f"{DC_WARD_SERVICE_URL}?{requests.compat.urlencode(params)}"
+		)
+		response.raise_for_status()
+		features = response.json().get("features", [])
+		if not features:
+			return None
+		attributes = features[0].get("attributes", {})
+		return normalize_ward_value(attributes.get("WARD") or attributes.get("NAME")) or None
+	except (requests.RequestException, ValueError, KeyError, TypeError) as error:
+		logger.warning("Ward lookup failed for coordinates %s: %s", coordinates, error)
+		return None
+
+def geocode_address_google(full_address):
 	"""Geocode an address using Google Maps Geocoding API.
 	
 	Returns:
@@ -226,17 +267,6 @@ def geocode_address_google(address, city, state, zip_code):
 	if not api_key:
 		logger.warning("Google Maps API key not found in environment; skipping geocoding")
 		return None
-	
-	# Build full address
-	address_parts = [address]
-	if city:
-		address_parts.append(city)
-	if state:
-		address_parts.append(state)
-	if zip_code:
-		address_parts.append(str(zip_code))
-	
-	full_address = ", ".join(filter(None, address_parts))
 	
 	params = {
 		'address': full_address,
@@ -1129,6 +1159,8 @@ class FirestoreMigration:
 				# client-profile2 documents.
 				transformed.pop("_referralContactPhone", None)
 				transformed.pop("_referralContactEmail", None)
+				# Single write funnel: calendar dates leave here as noon-Eastern timestamps.
+				transformed = normalize_client_dates(transformed)
 				doc_ref = self.db.collection(self.collection_name).document(doc_id)
 				if self.create_only:
 					batch.create(doc_ref, transformed)
@@ -1666,12 +1698,6 @@ class FirestoreMigration:
 				flags=re.IGNORECASE,
 			)
 
-		def _is_street_style_address(value: Any) -> bool:
-			"""Heuristic: real street addresses usually include at least one digit."""
-			cleaned = _clean_name(value)
-			if not cleaned:
-				return False
-			return bool(re.search(r"\d", cleaned))
 		first_name_raw = row.get("FIRST_database") or row.get("FIRST", "")
 		last_name_raw = row.get("LAST_database") or row.get("LAST", "")
 		first_name = _clean_name(first_name_raw)
@@ -1806,12 +1832,7 @@ class FirestoreMigration:
 		# Spreadsheet often stores quadrant in a separate column; append it when the
 		# address string is missing a quadrant token so downstream UIs/exports are consistent.
 		# Skip status/non-address text rows (e.g., "DECEASED", "MOVED").
-		if (
-			quadrant_value
-			and _is_street_style_address(address_for_coords)
-			and not re.search(r"\b(NE|NW|SE|SW)\b", address_for_coords, flags=re.IGNORECASE)
-		):
-			address_for_coords = f"{address_for_coords} {quadrant_value}".strip()
+		address_for_coords = canonicalize_dc_street_address(address_for_coords, quadrant_value)
 		address = address_for_coords
 		city = _clean_name(row.get("City"))
 		state = _clean_name(row.get("State"))
@@ -1829,7 +1850,14 @@ class FirestoreMigration:
 		coordinates = None
 		
 		# Try geocoding with Google Maps API
-		geocode_result = geocode_address_google(address_for_coords, city, state, zip_in_data)
+		full_geocoding_address = build_dc_geocoding_address(
+			address_for_coords,
+			quadrant_value,
+			city,
+			state,
+			zip_in_data,
+		)
+		geocode_result = geocode_address_google(full_geocoding_address)
 		if geocode_result:
 			latitude = geocode_result.get('latitude')
 			longitude = geocode_result.get('longitude')
@@ -1844,27 +1872,13 @@ class FirestoreMigration:
 		if not zip_code:
 			zip_code = str(zip_in_data) if zip_in_data else ""
 
-		DEFAULT_END_DATE_STR = "12/31/2026"
+		ward_from_coordinates = get_ward_from_coordinates(coordinates)
+		ward_value = normalize_ward_value(ward_from_coordinates or row.get("Ward"))
+
+		DEFAULT_END_DATE = date(2026, 12, 31)
 		raw_end = row.get("EndDate") or row.get("End Date", "")
-		end_date = ""
-		if raw_end is None or not str(raw_end).strip() or str(raw_end).strip().lower() == "nan":
-			end_date = DEFAULT_END_DATE_STR
-		else:
-			# Keep endDate in the same display format used throughout the ETL: MM/DD/YYYY.
-			if isinstance(raw_end, datetime):
-				end_date = raw_end.date().strftime("%m/%d/%Y")
-			elif isinstance(raw_end, date):
-				end_date = raw_end.strftime("%m/%d/%Y")
-			else:
-				text = str(raw_end).strip()
-				parsed_end = None
-				for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S"):
-					try:
-						parsed_end = datetime.strptime(text, fmt).date()
-						break
-					except Exception:
-						continue
-				end_date = parsed_end.strftime("%m/%d/%Y") if parsed_end else DEFAULT_END_DATE_STR
+		# Carry a real date; normalize_client_dates converts it on write.
+		end_date_dt = to_calendar_date(raw_end) or DEFAULT_END_DATE
 
 		# Map recurrence using the same normalized categories as deliveryFreq.
 		recurrence = self._map_frequency_category(row.get("Frequency", ""))
@@ -1872,10 +1886,10 @@ class FirestoreMigration:
 			recurrence = "Periodic"
 
 		# Parse dates for activeStatus logic
-		DEFAULT_START_DATE_STR = "11/15/2025"
-		DEFAULT_START_DATE = datetime.strptime(DEFAULT_START_DATE_STR, "%m/%d/%Y").date()
-		today = datetime.now(timezone.utc).date()
-		# Get start and end dates as strings.
+		DEFAULT_START_DATE = date(2025, 11, 15)
+		# Eastern, matching cloudrun-etl/update_active_status.py; a UTC "today" would
+		# disagree with the nightly job for five hours every evening.
+		today = datetime.now(EASTERN).date()
 		# Support legacy JSON fields and direct Excel headers ("Start Date").
 		raw_start = None
 		if row.get("StartDate_database") and str(row.get("StartDate_database")).strip():
@@ -1884,40 +1898,9 @@ class FirestoreMigration:
 			raw_start = row.get("StartDate_referral")
 		elif row.get("Start Date") and str(row.get("Start Date")).strip():
 			raw_start = row.get("Start Date")
-		# Parse startDate from raw value (datetime, date, or string)
-		start_date = None
-		if raw_start is not None and str(raw_start).strip():
-			if isinstance(raw_start, datetime):
-				start_date = raw_start.date()
-			elif isinstance(raw_start, date):
-				start_date = raw_start
-			else:
-				text = str(raw_start).strip()
-				for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S"):
-					try:
-						start_date = datetime.strptime(text, fmt).date()
-						break
-					except Exception:
-						continue
-		# If still no start_date, default it
-		if not start_date:
-			start_date = DEFAULT_START_DATE
-		start_date_str = start_date.strftime("%m/%d/%Y")
-		end_date_str = end_date
-		# Parse endDate
-		try:
-			end_date_dt = datetime.strptime(str(end_date_str).strip(), "%m/%d/%Y").date() if end_date_str and str(end_date_str).strip() else None
-		except Exception:
-			end_date_dt = None
-		# Determine activeStatus
-		if start_date and end_date_dt:
-			active_status_bool = start_date <= today <= end_date_dt
-		elif start_date and not end_date_dt:
-			active_status_bool = start_date <= today
-		elif not start_date and end_date_dt:
-			active_status_bool = today <= end_date_dt
-		else:
-			active_status_bool = False
+		start_date = to_calendar_date(raw_start) or DEFAULT_START_DATE
+		# Both dates fall back to a default above, so neither can be missing here.
+		active_status_bool = start_date <= today <= end_date_dt
 		client_profile = {
 			"uid": str(row.get("ID", "")),
 			"firstName": first_name,
@@ -1929,7 +1912,7 @@ class FirestoreMigration:
 			"city": city,
 			"state": state,
 			"quadrant": quadrant_value,
-			"dob": "",
+			"dob": None,
 			"deliveryFreq": delivery_freq,
 			"phone": phone,
 			"email": email,
@@ -1958,12 +1941,12 @@ class FirestoreMigration:
 				"name": "ETL",
 			},
 			"tags": tags,
-			"ward": _clean_name(row.get("Ward")),
+			"ward": ward_value,
 			"coordinates": coordinates,
 			"seniors": age_group_data["seniors"],
 			"headOfHousehold": age_group_data["headOfHousehold"],
-			"startDate": start_date_str,
-			"endDate": end_date,
+			"startDate": start_date,
+			"endDate": end_date_dt,
 			"recurrence": recurrence,
 			"tefapCert": bool(tefap_cert_date),
 			"tefapCertDate": tefap_cert_date,

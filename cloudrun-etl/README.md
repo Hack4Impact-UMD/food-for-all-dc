@@ -51,6 +51,13 @@ The main script (`update_active_status.py`) checks each client's `startDate` and
 
 This update is intended to run nightly (for example, from Cloud Scheduler) so `activeStatus` remains current.
 
+"Today" is evaluated on the **America/New_York** calendar, not the container's UTC clock,
+so the status does not roll over early in the evening.
+
+`startDate`/`endDate` are stored as Timestamps (see `ETL/README.md` under Date handling).
+`parse_date` also accepts the legacy `MM/DD/YYYY` and `YYYY-MM-DD` strings, so this service
+works either side of that migration.
+
 ### 2) admin-notes-email
 - **Purpose:** Builds a weekly summary of recent admin-note updates and emails the report.
 - **Trigger style:** HTTP Cloud Run service.

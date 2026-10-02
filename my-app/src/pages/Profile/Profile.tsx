@@ -7,6 +7,11 @@ import {
   Autocomplete,
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   IconButton,
   MenuItem,
   Select,
@@ -23,7 +28,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  limit,
   orderBy,
   query,
   setDoc,
@@ -38,10 +42,8 @@ import dataSources from "../../config/dataSources";
 import { googleMapsApiKey } from "../../config/apiKeys";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
-import { clientService, normalizeBooleanField } from "../../services/client-service";
+import { normalizeBooleanField } from "../../services/client-service";
 import DeliveryService from "../../services/delivery-service";
-import PopUp from "../../components/PopUp";
-import ErrorPopUp from "../../components/ErrorPopUp";
 
 import BasicInfoForm from "./components/BasicInfoForm";
 import DeliveryInfoForm from "./components/DeliveryInfoForm";
@@ -74,13 +76,20 @@ import HealthCheckbox from "./components/HealthCheckbox";
 import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { deliveryDate } from "../../utils/deliveryDate";
 import { computeClientActiveStatus } from "../../utils/clientStatus";
+import { normalizeClientDatesForRead, normalizeClientDatesForWrite } from "../../utils/clientDate";
+import { GENDER_OPTIONS, normalizeGender } from "../../utils/gender";
 import { toJSDate } from "../../utils/timestamp";
-import { buildGeocodingAddress, shouldGeocodeClientLocation } from "../../utils/addressFormat";
 import {
-  buildClientAuditMetadata,
-  buildClientAuditWriteMetadata,
-} from "../../utils/clientAudit";
+  buildGeocodingAddress,
+  formatAddressUnit,
+  formatAddressWithQuadrantAndUnit,
+  normalizeDuplicateAddress,
+  resolveAddressQuadrant,
+  shouldGeocodeClientLocation,
+} from "../../utils/addressFormat";
+import { buildClientAuditMetadata, buildClientAuditWriteMetadata } from "../../utils/clientAudit";
 import { removeTagMetadataIfUnused } from "./Tags/tagPersistence";
+import { formatPhoneNumberForSave, normalizePhoneInput } from "../../utils/format";
 
 const ADDRESS_DIRECTION_ABBREVIATIONS: Record<string, string> = {
   northeast: "NE",
@@ -89,9 +98,17 @@ const ADDRESS_DIRECTION_ABBREVIATIONS: Record<string, string> = {
   southwest: "SW",
 };
 
+const DMV_AUTOCOMPLETE_BOUNDS: google.maps.LatLngBoundsLiteral = {
+  north: 39.35,
+  south: 38.3,
+  east: -76.7,
+  west: -77.8,
+};
+
 const standardizeAddressDirections = (value: string): string =>
-  value.replace(/\b(northwest|northeast|southwest|southeast)\b/gi, (match) =>
-    ADDRESS_DIRECTION_ABBREVIATIONS[match.toLowerCase()] ?? match
+  value.replace(
+    /\b(northwest|northeast|southwest|southeast)\b/gi,
+    (match) => ADDRESS_DIRECTION_ABBREVIATIONS[match.toLowerCase()] ?? match
   );
 
 const extractQuadrantAbbreviation = (value: string): string => {
@@ -100,16 +117,70 @@ const extractQuadrantAbbreviation = (value: string): string => {
   return match?.[1]?.toUpperCase() ?? "";
 };
 
-const formatProfilePhoneForSave = (value: unknown): string => {
-  if (typeof value !== "string") return "";
+const getProfilePhoneError = (value: string, required: boolean): string | undefined => {
   const trimmedValue = value.trim();
-  if (!trimmedValue) return "";
+  if (!trimmedValue) return required ? "Phone is required" : undefined;
 
-  const digits = trimmedValue.replace(/\D/g, "");
-  const nationalDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
-  const match = nationalDigits.match(/^(\d{3})(\d{3})(\d{4})$/);
+  if ((trimmedValue.match(/\d/g) || []).length < 10) {
+    return "Phone number must contain at least 10 digits";
+  }
 
-  return match ? `(${match[1]}) ${match[2]}-${match[3]}` : trimmedValue;
+  return formatPhoneNumberForSave(trimmedValue) === null
+    ? `"${trimmedValue}" is an invalid format. Please see the i icon for allowed formats.`
+    : undefined;
+};
+
+const formatProfilePhoneForSave = (value: unknown): string => {
+  const normalizedValue = normalizePhoneInput(typeof value === "string" ? value : "");
+  return formatPhoneNumberForSave(normalizedValue) ?? normalizedValue.trim();
+};
+
+export const isDuplicateClientName = (
+  candidate: Pick<ClientProfile, "firstName" | "lastName">,
+  firstName: string,
+  lastName: string
+): boolean => {
+  const normalizeName = (value: string) => (value || "").trim().toLowerCase();
+  return (
+    normalizeName(candidate.firstName) === normalizeName(firstName) &&
+    normalizeName(candidate.lastName) === normalizeName(lastName)
+  );
+};
+
+export const isDuplicateClient = (candidate: ClientProfile, profile: ClientProfile): boolean => {
+  if (!isDuplicateClientName(candidate, profile.firstName, profile.lastName)) return false;
+
+  const candidateAddress = normalizeDuplicateAddress(candidate);
+  const profileAddress = normalizeDuplicateAddress(profile);
+  const candidateZipCode = (candidate.zipCode || "").trim();
+  const profileZipCode = (profile.zipCode || "").trim();
+
+  return (
+    Boolean(candidateAddress.street && profileAddress.street && candidateZipCode) &&
+    candidateAddress.street === profileAddress.street &&
+    candidateAddress.unit === profileAddress.unit &&
+    candidateZipCode === profileZipCode
+  );
+};
+
+export const shouldCheckForDuplicateClient = (
+  profile: ClientProfile,
+  previousProfile: ClientProfile | null,
+  isNewProfile: boolean
+): boolean =>
+  isNewProfile || previousProfile === null || !isDuplicateClient(previousProfile, profile);
+
+export const formatDuplicateClientAddress = (profile: ClientProfile): string => {
+  const street = formatAddressWithQuadrantAndUnit(
+    profile.address,
+    profile.quadrant,
+    profile.address2
+  );
+  const cityStateZip = [profile.city, [profile.state, profile.zipCode].filter(Boolean).join(" ")]
+    .filter(Boolean)
+    .join(", ");
+
+  return [street, cityStateZip].filter(Boolean).join(", ");
 };
 
 const fieldStyles = {
@@ -255,7 +326,7 @@ const Profile = () => {
     total: 0,
     seniors: 0,
     headOfHousehold: "Adult",
-    gender: "Male",
+    gender: "Unknown",
     ethnicity: "",
     deliveryDetails: {
       deliveryInstructions: "",
@@ -338,6 +409,9 @@ const Profile = () => {
   const [editableRecurringSeries, setEditableRecurringSeries] =
     useState<DeliverySeriesSummary | null>(null);
 
+  // The dialog treats clientProfile.endDate as the scheduling window, so it stays the client's own
+  // end date. A series' effectiveEndDate is only the date of its last scheduled delivery, and
+  // borrowing it here capped every date picker at the last delivery already on the books.
   const preSelectedClientData = useMemo(
     () => ({
       clientId: clientId || clientProfile.uid || "",
@@ -348,7 +422,6 @@ const Profile = () => {
       clientProfile: {
         ...clientProfile,
         recurrence: editableRecurringSeries?.recurrence || clientProfile.recurrence,
-        endDate: editableRecurringSeries?.effectiveEndDate || clientProfile.endDate,
       },
       targetRecurrenceId: undefined,
     }),
@@ -431,23 +504,20 @@ const Profile = () => {
   const [addressError, setAddressError] = useState<string>("");
   const [userTypedAddress, setUserTypedAddress] = useState<string>("");
   const [isAddressValidated, setIsAddressValidated] = useState<boolean>(true);
-  const [showDuplicatePopup, setShowDuplicatePopup] = useState(false);
-  const [duplicateErrorMessage, setDuplicateErrorMessage] = useState(
-    "A client with this name and address already exists in the system."
-  );
-  const [showSimilarNamesInfo, setShowSimilarNamesInfo] = useState(false);
-  const [similarNamesMessage, setSimilarNamesMessage] = useState("");
+  const [duplicateClients, setDuplicateClients] = useState<ClientProfile[]>([]);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
 
   const getProfileById = async (id: string) => {
     const docRef = doc(db, dataSources.firebase.clientsCollection, id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      const data = docSnap.data();
+      // Date fields may be Timestamps or either legacy string format; the form needs ISO strings.
+      const data = normalizeClientDatesForRead(docSnap.data());
 
       const normalizedData = {
         ...data,
+        gender: normalizeGender(data.gender),
         tefapCert: normalizeBooleanField(data.tefapCert),
-        tefapCertDate: deliveryDate.tryToISODateString(data.tefapCertDate) ?? "",
         activeStatus: computeClientActiveStatus(
           data.startDate,
           data.endDate,
@@ -507,12 +577,6 @@ const Profile = () => {
     }
     fetchConfigFromBucket();
   }, []);
-  React.useEffect(() => {
-    if (!loading && !user) {
-      navigate("/");
-    }
-  }, [user, loading, navigate]);
-
   //get list of all tags
   useEffect(() => {
     const fetchTags = async () => {
@@ -748,7 +812,10 @@ const Profile = () => {
         // Check if we found a ward
         if (data.features && data.features.length > 0) {
           const wardFeature = data.features[0];
-          wardName = wardFeature.attributes.NAME || `Ward ${wardFeature.attributes.WARD}`;
+          wardName =
+            String(wardFeature.attributes.WARD || wardFeature.attributes.NAME || "").match(
+              /\d+/
+            )?.[0] || "No ward";
         } else {
           wardName = "No ward";
         }
@@ -764,9 +831,12 @@ const Profile = () => {
     [getCoordinates]
   );
 
-  const getWardAndCoordinates = async () => {
+  const getWardAndCoordinates = async (location = clientProfile) => {
     // Apartment/unit data is intentionally excluded because it does not affect map location.
-    const fullAddress = buildGeocodingAddress(clientProfile);
+    const fullAddress = buildGeocodingAddress(location);
+    if (!fullAddress) {
+      return { ward: "No address", coordinates: null };
+    }
     let wardName = "";
     let coordinates: number[] | null = null;
 
@@ -811,7 +881,10 @@ const Profile = () => {
       // Check if we found a ward
       if (data.features && data.features.length > 0) {
         const wardFeature = data.features[0];
-        wardName = wardFeature.attributes.NAME || `Ward ${wardFeature.attributes.WARD}`;
+        wardName =
+          String(wardFeature.attributes.WARD || wardFeature.attributes.NAME || "").match(
+            /\d+/
+          )?.[0] || "No ward";
       } else {
         wardName = "No ward";
       }
@@ -899,33 +972,17 @@ const Profile = () => {
         [name]: Number(value),
       }));
     } else if (name === "phone" || name === "alternativePhone") {
-      setClientProfile((prevState) => {
-        const updatedProfile = {
-          ...prevState,
-          [name]: value,
-        };
-
-        const countDigits = (str: string) => (str.match(/\d/g) || []).length;
-        const isValidPhoneFormat = (phone: string) => {
-          return /^(\+1\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
-        };
-        const newErrors = { ...errors };
-
-        if (name === "phone" || name === "alternativePhone") {
-          if (value.trim() === "" && name === "phone") {
-            newErrors[name] = "Phone is required";
-          } else if (countDigits(value) < 10) {
-            newErrors[name] = "Phone number must contain at least 10 digits";
-          } else if (!isValidPhoneFormat(value)) {
-            newErrors[name] =
-              `"${value}" is an invalid format. Please see the i icon for allowed formats.`;
-          } else {
-            delete newErrors[name];
-          }
-        }
-
-        setErrors(newErrors);
-        return updatedProfile;
+      const normalizedValue = normalizePhoneInput(value);
+      setClientProfile((prevState) => ({
+        ...prevState,
+        [name]: normalizedValue,
+      }));
+      setErrors((previousErrors) => {
+        const newErrors = { ...previousErrors };
+        const phoneError = getProfilePhoneError(normalizedValue, name === "phone");
+        if (phoneError) newErrors[name] = phoneError;
+        else delete newErrors[name];
+        return newErrors;
       });
     } else {
       setClientProfile((prevState) => {
@@ -995,10 +1052,7 @@ const Profile = () => {
     if (!clientProfile.recurrence?.trim()) {
       newErrors.recurrence = "Recurrence is required";
     }
-    if (
-      (!clientProfile.referralEntity || !clientProfile.referralEntity.id) &&
-      (isNewProfile || !!prevClientProfile?.referralEntity?.id)
-    ) {
+    if (!clientProfile.referralEntity || !clientProfile.referralEntity.id) {
       newErrors.referralEntity = "Referral entity is required";
     }
     if (!clientProfile.phone?.trim()) {
@@ -1020,27 +1074,13 @@ const Profile = () => {
       newErrors.total = "At least one adult or senior is required";
     }
 
-    // Count digits and validate phone number format
-    const countDigits = (str: string) => (str.match(/\d/g) || []).length;
-    const isValidPhoneFormat = (phone: string) => {
-      // Allowed formats: (123) 456-7890, 123-456-7890, 123.456.7890, 123 456 7890, 1234567890, +1 123-456-7890
-      return /^(\+1\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
-    };
+    const normalizedPhone = normalizePhoneInput(clientProfile.phone ?? "");
+    const phoneError = getProfilePhoneError(normalizedPhone, true);
+    if (phoneError) newErrors.phone = phoneError;
 
-    if (!clientProfile.phone?.trim()) {
-      newErrors.phone = "Phone is required";
-    } else if (countDigits(clientProfile.phone) < 10) {
-      newErrors.phone = "Phone number must contain at least 10 digits";
-    } else if (!isValidPhoneFormat(clientProfile.phone)) {
-      newErrors.phone = `"${clientProfile.phone}" is an invalid format. Please see the i icon for allowed formats.`;
-    }
-    if (
-      clientProfile.alternativePhone?.trim() &&
-      (countDigits(clientProfile.alternativePhone) < 10 ||
-        !isValidPhoneFormat(clientProfile.alternativePhone))
-    ) {
-      newErrors.alternativePhone = `"${clientProfile.alternativePhone}" is an invalid format. Please see the i icon for allowed formats.`;
-    }
+    const normalizedAltPhone = normalizePhoneInput(clientProfile.alternativePhone ?? "");
+    const alternativePhoneError = getProfilePhoneError(normalizedAltPhone, false);
+    if (alternativePhoneError) newErrors.alternativePhone = alternativePhoneError;
 
     //validate head of household logic
     if (
@@ -1110,146 +1150,38 @@ const Profile = () => {
     return normalized;
   };
 
-  // Function to check for duplicate client and return useful information
-  // Return type for the enhanced duplicate check
-  interface DuplicateCheckResult {
-    isDuplicate: boolean;
-    sameNameCount?: number;
-    sameNameDiffAddressCount?: number;
-  }
-
   const checkDuplicateClient = async (
-    firstName: string,
-    lastName: string,
-    address: string,
-    address2: string,
-    zipCode: string,
+    profile: ClientProfile,
     excludeUid?: string
-  ): Promise<boolean | DuplicateCheckResult> => {
-    // Normalize inputs for comparison only
-    const normalizeString = (str: string) => (str || "").trim().toLowerCase();
-    const normalizedFirstName = normalizeString(firstName);
-    const normalizedLastName = normalizeString(lastName);
-    const normalizedAddress = normalizeString(address);
-    const normalizedAddress2 = normalizeString(address2);
-    const normalizedZipCode = normalizeString(zipCode);
+  ): Promise<ClientProfile[]> => {
+    const zipCode = profile.zipCode.trim();
+    if (!profile.firstName.trim() || !profile.lastName.trim() || !zipCode) return [];
 
-    // Skip check if any required field is empty
-    if (!normalizedFirstName || !normalizedLastName || !normalizedAddress || !normalizedZipCode) {
-      return false;
-    }
-
-    // Query Firestore for all clients with the same address and zip code
-    // use imported singleton clientService directly
-    const db = clientService["db"];
-    const clientsCollection = clientService["clientsCollection"];
-    const addressZipQuery = query(
-      collection(db, clientsCollection),
-      where("address", "==", address),
-      where("address2", "==", address2),
-      where("zipCode", "==", zipCode)
+    const clientsSnapshot = await getDocs(
+      query(collection(db, dataSources.firebase.clientsCollection), where("zipCode", "==", zipCode))
     );
-    const addressZipSnapshot = await getDocs(addressZipQuery);
 
-    // Filter for same name (case-insensitive)
-    const sameNameClients = addressZipSnapshot.docs.filter((docSnap) => {
-      const data = docSnap.data();
-      return (
-        normalizeString(data.firstName) === normalizedFirstName &&
-        normalizeString(data.lastName) === normalizedLastName &&
-        (!excludeUid || docSnap.id !== excludeUid)
-      );
+    return clientsSnapshot.docs.flatMap((docSnap) => {
+      if (excludeUid && docSnap.id === excludeUid) return [];
+      const data = docSnap.data() as ClientProfile;
+      return isDuplicateClient(data, profile) ? [{ ...data, uid: data.uid || docSnap.id }] : [];
     });
+  };
 
-    const sameNameClientsCount = sameNameClients.length;
-    const duplicateFound = sameNameClientsCount > 0;
-
-    // For similar name warning: use narrow zip+firstName+lastName queries instead of zip-wide scan.
-    let sameNameDiffAddressCount = 0;
-    if (!duplicateFound) {
-      const buildCaseVariants = (value: string): string[] => {
-        const trimmed = (value || "").trim();
-        if (!trimmed) return [];
-        const lower = trimmed.toLowerCase();
-        const upper = trimmed.toUpperCase();
-        const title = `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1).toLowerCase()}`;
-        return Array.from(new Set([trimmed, lower, upper, title]));
-      };
-
-      const firstNameVariants = buildCaseVariants(firstName);
-      const lastNameVariants = buildCaseVariants(lastName);
-      const sameNameQueryVariants = firstNameVariants.flatMap((firstNameVariant) =>
-        lastNameVariants.map((lastNameVariant) =>
-          query(
-            collection(db, clientsCollection),
-            where("zipCode", "==", zipCode),
-            where("firstName", "==", firstNameVariant),
-            where("lastName", "==", lastNameVariant),
-            limit(50)
-          )
-        )
-      );
-
-      try {
-        const sameNameSnapshots = await Promise.all(
-          sameNameQueryVariants.map((sameNameQuery) => getDocs(sameNameQuery))
-        );
-
-        const dedupedNameMatches = new Map<string, any>();
-        sameNameSnapshots.forEach((snapshot) => {
-          snapshot.docs.forEach((docSnap) => {
-            dedupedNameMatches.set(docSnap.id, docSnap.data());
-          });
-        });
-
-        sameNameDiffAddressCount = Array.from(dedupedNameMatches.entries()).filter(
-          ([docId, data]) => {
-            if (excludeUid && docId === excludeUid) {
-              return false;
-            }
-
-            return (
-              normalizeString(data.firstName) === normalizedFirstName &&
-              normalizeString(data.lastName) === normalizedLastName &&
-              (normalizeString(data.address) !== normalizedAddress ||
-                normalizeString(data.address2) !== normalizedAddress2)
-            );
-          }
-        ).length;
-      } catch (sameNameQueryError) {
-        // Fallback keeps save flow resilient if this narrower query needs an index.
-        const zipQuery = query(collection(db, clientsCollection), where("zipCode", "==", zipCode));
-        const zipSnapshot = await getDocs(zipQuery);
-        sameNameDiffAddressCount = zipSnapshot.docs.filter((docSnap) => {
-          const data = docSnap.data();
-          return (
-            normalizeString(data.firstName) === normalizedFirstName &&
-            normalizeString(data.lastName) === normalizedLastName &&
-            (normalizeString(data.address) !== normalizedAddress ||
-              normalizeString(data.address2) !== normalizedAddress2) &&
-            (!excludeUid || docSnap.id !== excludeUid)
-          );
-        }).length;
-      }
-    }
-
-    if (duplicateFound) {
-      return {
-        isDuplicate: true,
-        sameNameCount: sameNameClientsCount,
-        sameNameDiffAddressCount,
-      };
-    }
-
-    if (sameNameDiffAddressCount > 0) {
-      return {
-        isDuplicate: false,
-        sameNameCount: 0,
-        sameNameDiffAddressCount,
-      };
-    }
-
-    return false;
+  /**
+   * Called after a TEFAP form is completed for this client.
+   *
+   * The dialog has already written the new certification date to Firestore, but
+   * this component still holds the old one in state and writes the whole profile
+   * on save - without this the next save would put the stale date back.
+   */
+  const handleTefapCertUpdated = (certExpiresOn: string) => {
+    setClientProfile((prev) => ({
+      ...prev,
+      tefapCert: Boolean(certExpiresOn),
+      tefapCertDate: certExpiresOn,
+    }));
+    void refresh();
   };
 
   const handleSave = async () => {
@@ -1275,9 +1207,6 @@ const Profile = () => {
       return;
     }
 
-    // Clear any previous duplicate popup states
-    setShowDuplicatePopup(false);
-
     // Show saving indicator? (Optional)
     // setIsLoading(true);
 
@@ -1285,103 +1214,45 @@ const Profile = () => {
       if (!user) {
         throw new Error("You must be logged in to save a client profile.");
       }
-      if (isNewProfile) {
-        // Force duplicate check to always happen with direct values, not through variables
-        const duplicateResult = await checkDuplicateClient(
-          String(clientProfile.firstName).trim(),
-          String(clientProfile.lastName).trim(),
-          String(clientProfile.address).trim(),
-          String(clientProfile.address2).trim(),
-          String(clientProfile.zipCode).trim()
-        );
+      const matchingClients = shouldCheckForDuplicateClient(
+        clientProfile,
+        prevClientProfile,
+        isNewProfile
+      )
+        ? await checkDuplicateClient(
+            clientProfile,
+            isNewProfile ? undefined : String(clientProfile.uid)
+          )
+        : [];
 
-        let isDuplicate = false;
-        let sameNameCount = 0;
-        let sameNameDiffAddressCount = 0;
-
-        // Handle different result formats
-        if (typeof duplicateResult === "boolean") {
-          isDuplicate = duplicateResult;
-        } else {
-          isDuplicate = duplicateResult.isDuplicate;
-          sameNameCount = duplicateResult.sameNameCount || 0;
-          sameNameDiffAddressCount = duplicateResult.sameNameDiffAddressCount || 0;
-        }
-
-        if (isDuplicate) {
-          // Create a detailed error message including exact fields that caused the duplicate
-          const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a new client with a unique name or address.`;
-          // Update error message and show the popup
-          setDuplicateErrorMessage(errorMsg);
-          setShowDuplicatePopup(true);
-          // No automatic timeout - let the user dismiss the error
-          return;
-        }
-
-        // Warn if there are other clients with the same name in the same zip code
-        if (sameNameDiffAddressCount > 0) {
-          const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? "is" : "are"} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? "" : "s"} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
-          setSimilarNamesMessage(warningMsg);
-          setShowSimilarNamesInfo(true);
-        }
-      } else {
-        // Force duplicate check to always happen with direct values, not through variables
-        const duplicateResult = await checkDuplicateClient(
-          String(clientProfile.firstName).trim(),
-          String(clientProfile.lastName).trim(),
-          String(clientProfile.address).trim(),
-          String(clientProfile.address2).trim(),
-          String(clientProfile.zipCode).trim(),
-          String(clientProfile.uid)
-        );
-
-        let isDuplicate = false;
-        let sameNameCount = 0;
-        let sameNameDiffAddressCount = 0;
-
-        // Handle different result formats
-        if (typeof duplicateResult === "boolean") {
-          isDuplicate = duplicateResult;
-        } else {
-          isDuplicate = duplicateResult.isDuplicate;
-          sameNameCount = duplicateResult.sameNameCount || 0;
-          sameNameDiffAddressCount = duplicateResult.sameNameDiffAddressCount || 0;
-        }
-
-        if (isDuplicate) {
-          // Create a detailed error message including exact fields that caused the duplicate
-          const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a different client with a unique name or address.`;
-          // Update error message and show the popup
-          setDuplicateErrorMessage(errorMsg);
-          setShowDuplicatePopup(true);
-          // No automatic timeout - let the user dismiss the error
-          return;
-        }
-
-        // Warn if there are other clients with the same name in the same zip code
-        if (sameNameDiffAddressCount > 0) {
-          const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? "is" : "are"} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? "" : "s"} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
-          setSimilarNamesMessage(warningMsg);
-          setShowSimilarNamesInfo(true);
-        }
+      if (matchingClients.length > 0) {
+        setDuplicateClients(matchingClients);
+        setShowDuplicateWarning(true);
+        return;
       }
       // --- Geocoding Optimization Start ---
       // Always force geocoding and coordinate update on every save
       // Only geocode when address changed or existing coords/ward are missing/invalid
       const existingCoords = clientProfile.coordinates;
-      const needsGeocode = shouldGeocodeClientLocation(clientProfile, prevClientProfile);
+      const resolvedQuadrant = resolveAddressQuadrant(
+        clientProfile.address,
+        clientProfile.quadrant
+      );
+      const canonicalLocation = { ...clientProfile, quadrant: resolvedQuadrant };
+      const needsGeocode = shouldGeocodeClientLocation(canonicalLocation, prevClientProfile);
 
       let fetchedWard: string;
       let coordinatesToSave: [number, number] | [];
 
       if (needsGeocode) {
-        const { ward: geoWard, coordinates: fetchedCoordinates } = await getWardAndCoordinates();
+        const { ward: geoWard, coordinates: fetchedCoordinates } =
+          await getWardAndCoordinates(canonicalLocation);
         const hasValidCoordinates =
           Array.isArray(fetchedCoordinates) &&
           fetchedCoordinates.length === 2 &&
           fetchedCoordinates[0] !== 0 &&
           fetchedCoordinates[1] !== 0;
-        const hasResolvedWard = /^Ward\s+\d+$/i.test(geoWard.trim());
+        const hasResolvedWard = /^[1-8]$/.test(geoWard.trim());
         if (!hasValidCoordinates || !hasResolvedWard) {
           throw new Error(
             "The address could not be mapped to coordinates and a DC ward. The profile was not saved; please retry or select the address from the suggestions."
@@ -1493,7 +1364,7 @@ const Profile = () => {
 
       const normalizedStartDate = convertDateForSave(cleanedProfile.startDate);
       const normalizedEndDate = convertDateForSave(cleanedProfile.endDate);
-        const normalizedTefapCertDate = convertDateForSave(cleanedProfile.tefapCertDate);
+      const normalizedTefapCertDate = convertDateForSave(cleanedProfile.tefapCertDate);
       const normalizedPhone = formatProfilePhoneForSave(cleanedProfile.phone);
       const normalizedAlternativePhone = formatProfilePhoneForSave(cleanedProfile.alternativePhone);
       const normalizedStartDateISO = deliveryDate.tryToISODateString(normalizedStartDate);
@@ -1529,6 +1400,7 @@ const Profile = () => {
           Number(clientProfile.adults || 0) +
           Number(clientProfile.children || 0) +
           Number(clientProfile.seniors || 0),
+        quadrant: resolvedQuadrant,
         ward: fetchedWard, // Use potentially updated ward
         coordinates: coordinatesToSave, // Use potentially updated coordinates
         referralEntity: selectedCaseWorker
@@ -1558,10 +1430,7 @@ const Profile = () => {
       );
       const didChangeEndDate = normalizedPreviousEndDateISO !== normalizedEndDateISO;
       const isThreeStrikesReactivation =
-        wasThreeStrikesInactive &&
-        didChangeEndDate &&
-        !previousActiveStatus &&
-        nextActiveStatus;
+        wasThreeStrikesInactive && didChangeEndDate && !previousActiveStatus && nextActiveStatus;
 
       if (isThreeStrikesReactivation) {
         updatedProfile.activeStatus = nextActiveStatus;
@@ -1586,10 +1455,13 @@ const Profile = () => {
         };
         // Save profile + tags in parallel to reduce perceived save latency.
         await Promise.all([
-          setDoc(doc(db, dataSources.firebase.clientsCollection, newUid), {
-            ...newProfile,
-            ...buildClientAuditWriteMetadata(user, name),
-          }),
+          setDoc(
+            doc(db, dataSources.firebase.clientsCollection, newUid),
+            normalizeClientDatesForWrite({
+              ...newProfile,
+              ...buildClientAuditWriteMetadata(user, name),
+            })
+          ),
           setDoc(
             doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
             { tags: sortedAllTags },
@@ -1628,10 +1500,10 @@ const Profile = () => {
         await Promise.all([
           setDoc(
             doc(db, dataSources.firebase.clientsCollection, clientProfile.uid),
-            {
+            normalizeClientDatesForWrite({
               ...updatedProfile,
               ...buildClientAuditWriteMetadata(user, name),
-            },
+            }),
             { merge: true }
           ),
           setDoc(
@@ -1991,7 +1863,7 @@ const Profile = () => {
             </Typography>
             {isEditing ? (
               <CustomTextField
-                name="dietaryPreferences"
+                name="Please specify preferred food (e.g. fresh produce, sliced cheese)."
                 value={
                   typeof clientProfile.deliveryDetails?.dietaryRestrictions?.dietaryPreferences ===
                   "string"
@@ -2043,7 +1915,7 @@ const Profile = () => {
         return <Box>{clientProfile.language}</Box>;
       }
 
-      const preDefinedOptions = ["English", "Spanish"];
+      const preDefinedOptions = ["English", "Spanish", "Unknown"];
       // If the stored language is not one of the predefined ones, we default to "Other"
       const isPredefined = preDefinedOptions.includes(clientProfile.language);
       const selectValue = isPredefined ? clientProfile.language : "Other";
@@ -2144,6 +2016,7 @@ const Profile = () => {
         "Middle Eastern or North African",
         "Native Hawaiian or Pacific Islander",
         "Prefer Not to Say",
+        "Unknown",
       ];
 
       const isPredefined = preDefinedOptions.includes(clientProfile.ethnicity);
@@ -2226,10 +2099,10 @@ const Profile = () => {
         return <Box>{clientProfile.gender}</Box>;
       }
 
-      const preDefinedOptions = ["Male", "Female", "Other"];
+      const preDefinedOptions = GENDER_OPTIONS;
 
       const isPredefined = preDefinedOptions.includes(clientProfile.gender);
-      const selectValue = isPredefined ? clientProfile.gender : "Other";
+      const selectValue = isPredefined ? clientProfile.gender : "Unknown";
 
       const handleGenderSelectChange = (e: any) => {
         const newVal = e.target.value;
@@ -2378,6 +2251,14 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
+    // Quadrant is read-only and derived from the street address, which handleSave treats as
+    // authoritative. Derive it here too so the displayed value cannot go stale while the
+    // address is being edited.
+    const displayValue =
+      fieldPath === "quadrant"
+        ? resolveAddressQuadrant(clientProfile.address, clientProfile.quadrant)
+        : value;
+
     // Determine if the field should be disabled
     const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward", "total"].includes(
       fieldPath
@@ -2394,7 +2275,7 @@ const Profile = () => {
       >
         <FormField
           fieldPath={fieldPath}
-          value={value}
+          value={displayValue}
           type={type}
           isEditing={isEditing}
           handleChange={handleChange}
@@ -2687,11 +2568,7 @@ const Profile = () => {
     const existingScript = document.getElementById("google-maps-script");
     if (existingScript) {
       // If the script already exists and has finished loading, initialize immediately.
-      if (
-        typeof window.google === "object" &&
-        window.google.maps &&
-        window.google.maps.places
-      ) {
+      if (typeof window.google === "object" && window.google.maps && window.google.maps.places) {
         callback();
         return;
       }
@@ -2749,13 +2626,12 @@ const Profile = () => {
       window.google.maps.places
     ) {
       if (autocompleteRef.current) return; // Prevent re-initialization
-      const autocomplete = new window.google.maps.places.Autocomplete(
-        addressInputRef.current,
-        {
-          types: ["address"],
-          componentRestrictions: { country: "us" },
-        }
-      );
+      const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
+        types: ["address"],
+        componentRestrictions: { country: "us" },
+        bounds: DMV_AUTOCOMPLETE_BOUNDS,
+        strictBounds: true,
+      });
       autocompleteRef.current = autocomplete;
       autocomplete.addListener("place_changed", async () => {
         const place = autocomplete.getPlace();
@@ -2766,6 +2642,7 @@ const Profile = () => {
         let state = "";
         let zip = "";
         let quadrant = "";
+        let unit = "";
         for (const comp of place.address_components) {
           if (comp.types.includes("street_number")) {
             street = comp.long_name + " " + street;
@@ -2778,7 +2655,7 @@ const Profile = () => {
           } else if (comp.types.includes("postal_code")) {
             zip = comp.long_name;
           } else if (comp.types.includes("subpremise")) {
-            street += " " + comp.long_name;
+            unit = formatAddressUnit(comp.long_name);
           } else if (comp.types.includes("neighborhood")) {
             // Optionally use for quadrant if DC
             if (!quadrant) {
@@ -2798,7 +2675,13 @@ const Profile = () => {
         // Get ward for the selected address
         let ward = "";
         try {
-          const fullAddress = `${street.trim()}, ${city}, ${state} ${zip}`;
+          const fullAddress = buildGeocodingAddress({
+            address: street,
+            quadrant,
+            city,
+            state,
+            zipCode: zip,
+          });
           ward = await getWard(fullAddress);
         } catch (error) {
           console.error("Error getting ward for selected address:", error);
@@ -2809,6 +2692,7 @@ const Profile = () => {
         setClientProfile((prev) => ({
           ...prev,
           address: street.trim(),
+          address2: unit || prev.address2,
           city,
           state,
           zipCode: zip,
@@ -2828,27 +2712,28 @@ const Profile = () => {
   }, [isGoogleApiLoaded, isEditing, getWard]);
 
   // Debounced ward lookup for manually typed addresses
+  const manualGeocodingAddress = buildGeocodingAddress(clientProfile);
+  const manualAddressNeedsGeocode = Boolean(
+    prevClientProfile && shouldGeocodeClientLocation(clientProfile, prevClientProfile)
+  );
+
   useEffect(() => {
-    if (!isEditing || !clientProfile.address || !prevClientProfile) return;
+    if (!isEditing || !manualGeocodingAddress || !manualAddressNeedsGeocode) return;
 
     const timeoutId = setTimeout(async () => {
-      // Only trigger ward lookup if the address is different from the previous one
-      // and it's not empty
-      if (clientProfile.address.trim() && clientProfile.address !== prevClientProfile?.address) {
-        try {
-          const ward = await getWard(clientProfile.address.trim());
-          setClientProfile((prev) => ({
-            ...prev,
-            ward,
-          }));
-        } catch (error) {
-          console.error("Error getting ward for manually typed address:", error);
-        }
+      try {
+        const ward = await getWard(manualGeocodingAddress);
+        setClientProfile((prev) => ({
+          ...prev,
+          ward,
+        }));
+      } catch (error) {
+        console.error("Error getting ward for manually typed address:", error);
       }
     }, 1500); // Wait 1.5 seconds after user stops typing
 
     return () => clearTimeout(timeoutId);
-  }, [clientProfile.address, isEditing, prevClientProfile?.address, getWard]);
+  }, [manualAddressNeedsGeocode, manualGeocodingAddress, isEditing, getWard]);
 
   // Remove any stray {fieldPath === 'address' ...} JSX outside renderField
 
@@ -3011,10 +2896,13 @@ const Profile = () => {
         );
 
         if (eventsToRestore.length > 0) {
-          console.error("Detected unexpected delivery date loss during add; restoring missing dates", {
-            clientId: deliveryClientId,
-            missingDateKeys,
-          });
+          console.error(
+            "Detected unexpected delivery date loss during add; restoring missing dates",
+            {
+              clientId: deliveryClientId,
+              missingDateKeys,
+            }
+          );
           await deliveryService.createEventsBatch(
             eventsToRestore.map((event) => {
               const { id: _id, ...eventWithoutId } = event;
@@ -3078,14 +2966,14 @@ const Profile = () => {
 
           await setDoc(
             doc(db, dataSources.firebase.clientsCollection, clientId),
-            {
+            normalizeClientDatesForWrite({
               endDate: strikeDate,
               activeStatus: false,
               autoInactiveReason: "three-strikes",
               autoInactivePreviousEndDate: previousEndDate,
               autoInactiveStrikeDate: strikeDate,
               ...buildClientAuditWriteMetadata(user!, name),
-            },
+            }),
             { merge: true }
           );
 
@@ -3149,21 +3037,18 @@ const Profile = () => {
 
         if (missedEvents.length < 3 && clientProfile.autoInactiveReason === "three-strikes") {
           const restoredEndDate = clientProfile.autoInactivePreviousEndDate ?? null;
-          const activeStatus = computeClientActiveStatus(
-            clientProfile.startDate,
-            restoredEndDate
-          );
+          const activeStatus = computeClientActiveStatus(clientProfile.startDate, restoredEndDate);
 
           await setDoc(
             doc(db, dataSources.firebase.clientsCollection, clientId),
-            {
+            normalizeClientDatesForWrite({
               endDate: restoredEndDate,
               activeStatus,
               autoInactiveReason: null,
               autoInactivePreviousEndDate: null,
               autoInactiveStrikeDate: null,
               ...buildClientAuditWriteMetadata(user!, name),
-            },
+            }),
             { merge: true }
           );
 
@@ -3214,20 +3099,59 @@ const Profile = () => {
           <Typography>Profile saved successfully!</Typography>
         </SaveNotification>
       )}
-      {showDuplicatePopup && (
-        <ErrorPopUp
-          message={duplicateErrorMessage}
-          title="Duplicate Client Detected"
-          // No auto-close duration - user must dismiss manually
-        />
-      )}
-      {showSimilarNamesInfo && (
-        <PopUp
-          message={similarNamesMessage}
-          duration={8000}
-          onDismiss={() => setShowSimilarNamesInfo(false)}
-        />
-      )}
+      <Dialog
+        open={showDuplicateWarning}
+        onClose={() => setShowDuplicateWarning(false)}
+        aria-labelledby="duplicate-client-dialog-title"
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle id="duplicate-client-dialog-title" sx={{ pb: 1 }}>
+          Duplicate Client Detected
+        </DialogTitle>
+        <DialogContent sx={{ display: "grid", gap: 2 }}>
+          <DialogContentText>
+            This client already exists. Duplicate records cannot be saved.
+          </DialogContentText>
+          {duplicateClients.map((duplicateClient, index) => (
+            <Box
+              key={duplicateClient.uid || index}
+              sx={{
+                borderLeft: "4px solid var(--color-primary)",
+                backgroundColor: "var(--color-background-gray-light)",
+                borderRadius: "4px",
+                px: 2,
+                py: 1.5,
+                display: "grid",
+                gap: 1.25,
+              }}
+            >
+              <Box>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>
+                  NAME
+                </Typography>
+                <Typography sx={{ fontWeight: 700 }}>
+                  {duplicateClient.firstName} {duplicateClient.lastName}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>
+                  ADDRESS
+                </Typography>
+                <Typography>{formatDuplicateClientAddress(duplicateClient)}</Typography>
+              </Box>
+            </Box>
+          ))}
+          <DialogContentText>
+            Open the existing client record to make any updates.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button variant="contained" onClick={() => setShowDuplicateWarning(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
       {/* Spacer for navbar height */}
       <Box sx={{ height: "64px" }} />
       {/* Enhanced Profile Header */}
@@ -3292,7 +3216,7 @@ const Profile = () => {
                 {isEditing && (
                   <StyledIconButton
                     color="primary"
-                    onClick={handleSave}
+                    onClick={() => void handleSave()}
                     aria-label="save"
                     disabled={isSaving}
                     size="small"
@@ -3442,6 +3366,8 @@ const Profile = () => {
               handleFieldChange={(key, value) =>
                 setDynamicFields((prev) => ({ ...prev, [key]: value }))
               }
+              clientId={clientId}
+              onTefapCertUpdated={handleTefapCertUpdated}
             />{" "}
           </SectionBox>
           <SectionBox sx={{ textAlign: "right", width: "100%" }}>
@@ -3467,7 +3393,7 @@ const Profile = () => {
               {isEditing && (
                 <StyledIconButton
                   color="primary"
-                  onClick={handleSave}
+                  onClick={() => void handleSave()}
                   disabled={isSaving}
                   aria-label="save"
                   size="small"

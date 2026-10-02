@@ -45,6 +45,7 @@ import ClearIcon from "@mui/icons-material/Clear";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import PrintIcon from "@mui/icons-material/Print";
 import GroupWorkIcon from "@mui/icons-material/GroupWork";
 import TodayIcon from "@mui/icons-material/Today";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
@@ -80,7 +81,6 @@ import {
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
-import { onAuthStateChanged } from "firebase/auth";
 const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
@@ -90,6 +90,7 @@ import RouteExportOptions, {
   RouteExportOption,
   RouteExportScope,
 } from "./components/RouteExportOptions";
+import RouteReportsPreview from "./components/RouteReportsPreview";
 import { computeClientActiveStatus, getClientStatusPresentation } from "../../utils/clientStatus";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { exportDeliveries, exportDoordashDeliveries, ExportFeedback } from "./RouteExport";
@@ -97,15 +98,20 @@ import Button from "@mui/material/Button";
 
 import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
 import { deliveryDate } from "../../utils/deliveryDate";
+import { normalizeClientDatesForRead } from "../../utils/clientDate";
 import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
 import { useNotifications } from "../../components/NotificationProvider";
-import { formatAddressWithQuadrantAndUnit } from "../../utils/addressFormat";
+import {
+  buildGeocodingAddress,
+  formatAddressWithQuadrantAndUnit,
+} from "../../utils/addressFormat";
 import {
   ClientOverride,
   normalizeAssignmentValue,
   normalizeDriverAssignmentValue,
   resolveAssignmentValue,
 } from "./utils/assignmentOverrides";
+import { filterRowsForRouteReport, prepareRouteReportData } from "./utils/routeReportData";
 import {
   assignDriverToRoutes,
   assignTimeToRoutes,
@@ -619,7 +625,7 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
   const testing = false;
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
   const limits = useLimits();
   const [rows, setRows] = useState<DeliveryRowData[]>([]);
   const [rawClientData, setRawClientData] = useState<DeliveryRowData[]>([]);
@@ -723,6 +729,7 @@ const DeliverySpreadsheet: React.FC = () => {
   // Granular loading states for better UX
   const [isLoadingDeliveries, setIsLoadingDeliveries] = useState(false);
   const [isLoadingClientDetails, setIsLoadingClientDetails] = useState(false);
+  const [isLoadingClusters, setIsLoadingClusters] = useState(true);
   const [isLoading, setIsLoading] = useState(false); // Still needed for clustering operations
 
   // Computed loading state - show loading only for critical operations
@@ -1144,7 +1151,7 @@ const DeliverySpreadsheet: React.FC = () => {
           const snapshot = await getDocs(q);
           const chunkData = snapshot.docs.map(
             (doc) =>
-              ({
+              normalizeClientDatesForRead({
                 id: doc.id,
                 ...doc.data(),
               }) as DeliveryRowData
@@ -1213,18 +1220,10 @@ const DeliverySpreadsheet: React.FC = () => {
     };
   }, [deliveriesForDate]);
 
-  // Route Protection
+  // ProtectedRoute owns the redirect; this only tracks whose saved searches to load.
   React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: any) => {
-      setCurrentUserId(user?.uid ?? "guest");
-      if (!user) {
-        navigate("/");
-      }
-    });
-
-    // Cleanup the listener when the component unmounts
-    return () => unsubscribe();
-  }, [navigate]);
+    setCurrentUserId(user?.uid ?? "guest");
+  }, [user]);
 
   //control popup state
 
@@ -1233,6 +1232,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const fetchClustersFromToday = React.useCallback(
     async (dateForFetch: Date) => {
       const requestId = ++clustersRequestIdRef.current;
+      setIsLoadingClusters(true);
 
       try {
         const { start, endExclusive } = deliveryDate.getUTCDateBounds(dateForFetch);
@@ -1275,6 +1275,10 @@ const DeliverySpreadsheet: React.FC = () => {
           setClusterDoc(null);
           setClusters([]);
           setClientOverrides([]);
+        }
+      } finally {
+        if (requestId === clustersRequestIdRef.current) {
+          setIsLoadingClusters(false);
         }
       }
     },
@@ -1746,7 +1750,21 @@ const DeliverySpreadsheet: React.FC = () => {
           existingCoordsMap.set(row.id, coords as LatLngTuple);
           finalCoordinates[index] = coords as LatLngTuple; // Pre-fill with existing
         } else {
-          clientsToGeocode.push({ id: row.id, address: row.address, originalIndex: index });
+          const geocodingAddress = buildGeocodingAddress({
+            address: row.address,
+            quadrant: row.quadrant,
+            city: row.city,
+            state: row.state,
+            zipCode: row.zipCode,
+          });
+          if (!geocodingAddress) {
+            return;
+          }
+          clientsToGeocode.push({
+            id: row.id,
+            address: geocodingAddress,
+            originalIndex: index,
+          });
         }
       });
 
@@ -2214,9 +2232,17 @@ const DeliverySpreadsheet: React.FC = () => {
                     checkStringContains(row.lastName, candidate)
                 );
               case "address":
-                return matchesAnySearchValue((candidate) =>
-                  checkStringContains(row.address, candidate)
-                );
+                return matchesAnySearchValue((candidate) => {
+                  const formattedAddress = formatAddressWithQuadrantAndUnit(
+                    row.address,
+                    row.quadrant,
+                    row.address2
+                  );
+                  return checkStringContains(
+                    `${formattedAddress}${row.zipCode ? ` ${row.zipCode}` : ""}`,
+                    candidate
+                  );
+                });
               case "ward":
                 return matchesAnySearchValue((candidate) => checkStringEquals(row.ward, candidate));
               case "zip":
@@ -2723,11 +2749,6 @@ const DeliverySpreadsheet: React.FC = () => {
   const hasActiveRouteFilter = searchQuery.trim() !== "";
   const defaultExportScope: RouteExportScope =
     selectedExportRows.length > 0 ? "selected" : hasActiveRouteFilter ? "visible" : "all";
-  const exportScopeCounts = {
-    selected: selectedExportRows.length,
-    visible: sortedRows.length,
-    all: rows.length,
-  };
 
   const getExportRowsForScope = React.useCallback(
     (scope: RouteExportScope): DeliveryRowData[] => {
@@ -2741,6 +2762,92 @@ const DeliverySpreadsheet: React.FC = () => {
       }
     },
     [rows, selectedExportRows, sortedRows]
+  );
+
+  const routeTypeScopeCounts = useMemo(() => {
+    const countForScope = (scope: RouteExportScope) =>
+      filterRowsForRouteReport(
+        getExportRowsForScope(scope),
+        clusters,
+        clientOverrides,
+        exportOption ?? "Routes"
+      ).length;
+
+    return {
+      selected: countForScope("selected"),
+      visible: countForScope("visible"),
+      all: countForScope("all"),
+    };
+  }, [clientOverrides, clusters, exportOption, getExportRowsForScope]);
+
+  const reportScopeSummaries = useMemo(() => {
+    const emptySummary = { unassigned: 0 };
+    if (popupMode !== "ReportOptions") {
+      return { selected: emptySummary, visible: emptySummary, all: emptySummary };
+    }
+
+    const summarizeScope = (scope: RouteExportScope) => {
+      const { issues } = prepareRouteReportData(
+        deliveryDate.toISODateString(selectedDate),
+        filterRowsForRouteReport(
+          getExportRowsForScope(scope),
+          clusters,
+          clientOverrides,
+          exportOption ?? "Routes"
+        ),
+        clusters,
+        clientOverrides
+      );
+
+      return {
+        unassigned: issues.length,
+      };
+    };
+
+    return {
+      selected: summarizeScope("selected"),
+      visible: summarizeScope("visible"),
+      all: summarizeScope("all"),
+    };
+  }, [
+    clientOverrides,
+    clusters,
+    exportOption,
+    getExportRowsForScope,
+    popupMode,
+    selectedDate,
+  ]);
+
+  const reportScopeIssueCounts = useMemo(
+    () => ({
+      selected: reportScopeSummaries.selected.unassigned,
+      visible: reportScopeSummaries.visible.unassigned,
+      all: reportScopeSummaries.all.unassigned,
+    }),
+    [reportScopeSummaries]
+  );
+
+  const routeReportData = useMemo(
+    () =>
+      prepareRouteReportData(
+        deliveryDate.toISODateString(selectedDate),
+        filterRowsForRouteReport(
+          getExportRowsForScope(exportScope),
+          clusters,
+          clientOverrides,
+          exportOption ?? "Routes"
+        ),
+        clusters,
+        clientOverrides
+      ),
+    [
+      clientOverrides,
+      clusters,
+      exportOption,
+      exportScope,
+      getExportRowsForScope,
+      selectedDate,
+    ]
   );
 
   useEffect(() => {
@@ -2917,7 +3024,7 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   return (
-    <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <Box className="box routes-page-box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <Box
           sx={{
@@ -3200,7 +3307,7 @@ const DeliverySpreadsheet: React.FC = () => {
                 onBlur={searchAutocomplete.handleInputBlur}
                 onKeyDown={searchAutocomplete.handleInputKeyDown}
                 onKeyUp={searchAutocomplete.handleInputKeyUp}
-                placeholder='Search deliveries (use ; between filters, e.g., cluster:1,2; ward:7; driver:maria; name:"john smith")'
+                placeholder='Search deliveries (use ; between filters, e.g., address:"123 Main St NE"; cluster:1,2; driver:maria; name:"john smith")'
                 style={{
                   width: "100%",
                   height: "60px",
@@ -3272,7 +3379,7 @@ const DeliverySpreadsheet: React.FC = () => {
           )}
           <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "16px" }}>
             {/* Left group: Assign Driver & Time */}
-            <Box sx={{ display: "flex", width: "100%", gap: "8px", flexWrap: "wrap" }}>
+            <Box sx={{ display: "flex", flex: 1, minWidth: 0, gap: "8px", flexWrap: "wrap" }}>
               <Button
                 variant="contained"
                 size="medium"
@@ -3292,8 +3399,38 @@ const DeliverySpreadsheet: React.FC = () => {
                 Assign Driver & Time
               </Button>
             </Box>
-            {/* Right group: Export button */}
-            <Box>
+            {/* Right group: Report and data export actions */}
+            <Box
+              sx={{
+                display: "flex",
+                flexShrink: 0,
+                gap: "8px",
+                flexWrap: "nowrap",
+                justifyContent: "flex-end",
+              }}
+            >
+              <Button
+                variant="outlined"
+                size="medium"
+                startIcon={<PrintIcon />}
+                disabled={rows.length === 0 || isMainLoading || isLoadingClusters}
+                style={{
+                  whiteSpace: "nowrap",
+                  borderRadius: 5,
+                  marginRight: "0px",
+                  minWidth: "auto",
+                  width: "auto",
+                  fontSize: "0.875rem",
+                  padding: "8px 16px",
+                }}
+                onClick={() => {
+                  setExportOption(null);
+                  setExportScope(defaultExportScope);
+                  setPopupMode("ReportOptions");
+                }}
+              >
+                Print Route Reports
+              </Button>
               <Button
                 variant="contained"
                 size="medium"
@@ -4336,13 +4473,48 @@ const DeliverySpreadsheet: React.FC = () => {
 
       {/* Export Options Popup */}
 
+      {popupMode === "Reports" ? (
+        <RouteReportsPreview reportData={routeReportData} onClose={resetSelections} />
+      ) : null}
+
+      <Dialog
+        open={popupMode === "ReportOptions"}
+        onClose={resetSelections}
+        maxWidth="sm"
+        fullWidth
+        disableScrollLock
+      >
+        <DialogTitle>Print Route Reports</DialogTitle>
+        <DialogContent sx={{ pt: 3, overflowY: "auto", overflowX: "hidden" }}>
+          <RouteExportOptions
+            exportOption={exportOption}
+            exportScope={exportScope}
+            scopeCounts={routeTypeScopeCounts}
+            scopeIssueCounts={reportScopeIssueCounts}
+            purpose="report"
+            onSelectOption={handleSelectExportOption}
+            onSelectScope={setExportScope}
+            onDownload={() => setPopupMode("Reports")}
+            onBack={() => {
+              if (exportOption) {
+                setExportOption(null);
+                setExportScope(defaultExportScope);
+                return;
+              }
+
+              resetSelections();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={popupMode === "Export"} onClose={resetSelections} maxWidth="sm" fullWidth>
         <DialogTitle>Export Options</DialogTitle>
         <DialogContent sx={{ pt: 3, overflowY: "auto", overflowX: "hidden" }}>
           <RouteExportOptions
             exportOption={exportOption}
             exportScope={exportScope}
-            scopeCounts={exportScopeCounts}
+            scopeCounts={routeTypeScopeCounts}
             onSelectOption={handleSelectExportOption}
             onSelectScope={setExportScope}
             onDownload={handleDownloadExport}

@@ -12,6 +12,26 @@ export enum UserType {
   Driver = "Driver",
 }
 
+/**
+ * Maps a stored role string onto its enum member. Returns null when the string
+ * matches no application role, so callers decide what an unknown role means.
+ */
+export const parseUserRole = (roleString: unknown): UserType | null => {
+  if (typeof roleString !== "string") {
+    return null;
+  }
+  switch (roleString.trim().toLowerCase()) {
+    case "admin":
+      return UserType.Admin;
+    case "manager":
+      return UserType.Manager;
+    case "client intake":
+      return UserType.ClientIntake;
+    default:
+      return null;
+  }
+};
+
 export const canCreateUserType = (currentUserType: UserType, newUserType: UserType): boolean => {
   switch (currentUserType) {
     case UserType.Admin:

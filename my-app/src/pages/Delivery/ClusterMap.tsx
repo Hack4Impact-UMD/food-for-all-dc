@@ -33,7 +33,13 @@ import {
   type ClusterSummarySortMode,
 } from "./utils/clusterSummary";
 import { TIME_SLOT_LABELS } from "./utils/timeSlots";
-import { getClusterColor, getClusterTextColor } from "./utils/clusterColors";
+import {
+  getClusterColor,
+  getClusterTextColor,
+  WARD_COLORS,
+  WARD_FALLBACK_COLOR,
+  WARD_FILL_OPACITY,
+} from "./utils/clusterColors";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
 
 interface Driver {
@@ -103,16 +109,7 @@ interface ClusterMapProps {
 }
 
 // DC Ward colors - each ward gets a unique translucent color
-const wardColors: { [key: string]: string } = {
-  "Ward 1": "#FF0000", // Red
-  "Ward 2": "#00FF00", // Green
-  "Ward 3": "#0000FF", // Blue
-  "Ward 4": "#FFFF00", // Yellow
-  "Ward 5": "#FF00FF", // Magenta
-  "Ward 6": "#00FFFF", // Cyan
-  "Ward 7": "#FFA500", // Orange
-  "Ward 8": "#800080", // Purple
-};
+const wardColors = WARD_COLORS;
 
 const ffaCoordinates: L.LatLngExpression = [38.91433, -77.036942];
 const dcWardCenterCoordinates: L.LatLngExpression = [38.895, -77.036942];
@@ -767,8 +764,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
     boundaries.features.forEach((feature: any) => {
       try {
-        const wardName = feature.properties.NAME || `Ward ${feature.properties.WARD}`;
-        const wardColor = wardColors[wardName] || "#999999"; // Default color if ward not found
+        const wardName = String(feature.properties.WARD || feature.properties.NAME || "").match(/\d+/)?.[0] || "";
+        const wardColor = wardColors[wardName] || WARD_FALLBACK_COLOR; // Default color if ward not found
 
         // Create polygon layer with translucent fill.
         // smoothFactor: 0 avoids deep recursive simplification in Leaflet on complex shapes.
@@ -779,7 +776,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           bubblingMouseEvents: false,
           style: {
             fillColor: wardColor,
-            fillOpacity: 0.2, // Translucent
+            fillOpacity: WARD_FILL_OPACITY, // Translucent
             color: wardColor,
             weight: 2,
             opacity: 0.8,

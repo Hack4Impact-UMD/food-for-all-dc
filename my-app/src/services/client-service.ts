@@ -6,6 +6,7 @@ import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { computeClientActiveStatus } from "../utils/clientStatus";
 import { deliveryDate } from "../utils/deliveryDate";
+import { normalizeClientDatesForRead, normalizeClientDatesForWrite } from "../utils/clientDate";
 import { toDateOrNull } from "../utils/dates";
 import {
   batchGetClientDeliverySummaries,
@@ -29,6 +30,7 @@ import {
 import { validateClientProfile } from "../utils/firestoreValidation";
 import dataSources from "../config/dataSources";
 import { buildClientAuditWriteMetadata } from "../utils/clientAudit";
+import { normalizeGender } from "../utils/gender";
 
 const getCurrentUserClientAuditMetadata = () => {
   const user = auth.currentUser;
@@ -86,6 +88,7 @@ export const mapClientDocToSpreadsheetBaseRow = (docId: string, raw: any): RowDa
     firstName: raw.firstName || "",
     lastName: raw.lastName || "",
     email: raw.email || "",
+    alternativePhone: raw.alternativePhone || "",
     phone: raw.phone || "",
     houseNumber: raw.houseNumber || 0,
     address: raw.address || "",
@@ -110,6 +113,11 @@ export const mapClientDocToSpreadsheetBaseRow = (docId: string, raw: any): RowDa
       },
     },
     ethnicity: raw.ethnicity || "",
+    city: raw.city || "",
+    state: raw.state || "",
+    quadrant: raw.quadrant || "",
+    streetName: raw.streetName || "",
+    headOfHousehold: raw.headOfHousehold || "",
     adults: raw.adults ?? null,
     children: raw.children ?? null,
     deliveryFreq: raw.deliveryFreq ?? "",
@@ -119,9 +127,12 @@ export const mapClientDocToSpreadsheetBaseRow = (docId: string, raw: any): RowDa
     notes: raw.notes ?? "",
     famStartDate,
     startDate: normalizeDateStringField(raw.startDate),
+    endDate: normalizeDateStringField(raw.endDate),
+    referredDate: normalizeDateStringField(raw.referredDate),
+    updatedAt: raw.updatedAt ?? null,
     tefapCert: normalizeBooleanField(raw.tefapCert),
     tefapCertDate: normalizeDateStringField(raw.tefapCertDate),
-    dob: raw.dob ?? "",
+    dob: normalizeDateStringField(raw.dob),
     ward: raw.ward ?? "",
     zipCode: raw.zipCode ?? "",
     tags: raw.tags ?? [],
@@ -186,12 +197,13 @@ class ClientService {
           return null;
         }
 
-        return {
+        // Consumers such as AddDeliveryDialog do string work on these fields.
+        return normalizeClientDatesForRead({
           ...data,
+          gender: normalizeGender(data.gender),
           tefapCert: normalizeBooleanField(data.tefapCert),
-          tefapCertDate: normalizeDateStringField((data as any).tefapCertDate),
           activeStatus: deriveClientActiveStatus(data),
-        };
+        });
       }
       return null;
     } catch (error) {
@@ -240,7 +252,7 @@ class ClientService {
             adults: raw.adults || 0,
             children: raw.children || 0,
             total: raw.total || 0,
-            gender: raw.gender || "Other",
+            gender: normalizeGender(raw.gender),
             ethnicity: raw.ethnicity || "",
             deliveryDetails: {
               deliveryInstructions: deliveryDetails.deliveryInstructions || "",
@@ -488,10 +500,13 @@ class ClientService {
   public async updateClient(uid: string, data: Partial<ClientProfile>): Promise<void> {
     try {
       await retry(async () => {
-        await updateDoc(doc(this.db, this.clientsCollection, uid), {
-          ...data,
-          ...getCurrentUserClientAuditMetadata(),
-        });
+        await updateDoc(
+          doc(this.db, this.clientsCollection, uid),
+          normalizeClientDatesForWrite({
+            ...data,
+            ...getCurrentUserClientAuditMetadata(),
+          })
+        );
       });
     } catch (error) {
       throw formatServiceError(error, "Failed to update client");

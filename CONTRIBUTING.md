@@ -112,6 +112,62 @@ const client = await clientService.getClientById(uid);
 - **Testing**: How did you test it?
 - **Screenshots**: (If UI changes)
 
+## Testing Locally with Emulators
+
+By default `npm start` reads and writes the **real Firebase project**. Use the
+emulators for anything that writes data, so development never touches live client
+records.
+
+```bash
+# Terminal 1 - Auth, Firestore, and Storage on localhost (UI at :4000)
+npm run emulators
+
+# Terminal 2 - create an Admin login and sample clients (emulators start empty)
+npm run seed:emulators
+#   Admin        admin@example.test / password123
+#   ClientIntake intake@example.test / password123
+
+# Terminal 2 - run the app against the emulators
+npm run start:emulated
+```
+
+`start:emulated` sets `REACT_APP_USE_EMULATORS=true`; plain `npm start` is
+unchanged and still points at production.
+
+Emulator data is discarded on shutdown. To keep it between runs:
+
+```bash
+firebase emulators:start --only auth,firestore,storage \
+  --import ./.emulator-data --export-on-exit
+```
+
+### Security rules
+
+Rules are the one thing the jest suite cannot cover, and they fail silently in the
+worst direction. With the emulators running and seeded:
+
+```bash
+npm run check:rules
+```
+
+This checks `storage.rules` end to end, including the cross-service Firestore
+lookup that decides who counts as an admin. Run it before merging a rules change.
+
+### Deploying rules and indexes
+
+`my-app/storage.rules` and `my-app/firestore.indexes.json` are deployed by the
+`deploy` job in `.github/workflows/firebase-cicd.yml` on every merge to `main`,
+before Hosting and Functions go out. Nothing else needs to be run by hand.
+
+Because that deploy replaces the bucket's rules wholesale, `storage.rules` has to
+stay a **complete** set for the bucket, not just the paths a given feature adds.
+For the same reason, do not run a bare `firebase deploy` locally - it would push
+your working copy of the rules to production. Deploy a single target instead, for
+example `firebase deploy --only hosting`.
+
+Firestore **rules** are still managed in the Firebase console and are not in this
+repo; `firebase.json` intentionally declares only `firestore.indexes`.
+
 ## Common Workflows
 
 ### Adding a Page

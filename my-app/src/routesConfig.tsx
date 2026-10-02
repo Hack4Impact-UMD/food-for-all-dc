@@ -2,6 +2,7 @@
 import React from "react";
 import Login from "./pages/Login/Login";
 import ForgotPasswordPage from "./pages/Login/forgot-password";
+import AuthActionPage from "./pages/Login/auth-action";
 import CalendarPage from "./pages/Calendar/CalendarPage";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 import UsersSpreadsheet from "./components/UsersSpreadsheet/UsersSpreadsheet";
@@ -13,6 +14,7 @@ import ClientReport from "./pages/Reports/ClientReport";
 import ReferralAgenciesReport from "./pages/Reports/ReferralAgenciesReport";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import ClientQueryTool from "./pages/ClientQueryTool/ClientQueryTool";
+import TefapFormsPage from "./pages/TefapForms/TefapFormsPage";
 import { UserType } from "./types";
 
 export interface RouteMeta {
@@ -29,6 +31,8 @@ export interface AppRoute {
   children?: AppRoute[];
 }
 
+const dashboardRoles = [UserType.Admin, UserType.Manager, UserType.ClientIntake];
+
 export const routesConfig: AppRoute[] = [
   {
     path: "/",
@@ -43,10 +47,26 @@ export const routesConfig: AppRoute[] = [
     meta: { title: "Forgot Password", description: "Password recovery page", icon: "lock" },
   },
   {
+    path: "/auth/action",
+    element: <AuthActionPage />,
+    public: true,
+    meta: {
+      title: "Reset Password",
+      description: "Handles password reset and email verification links",
+      icon: "lock_reset",
+    },
+  },
+  {
     path: "/*",
-    element: <BasePage />,
+    element: (
+      <ProtectedRoute allowedRoles={dashboardRoles}>
+        <BasePage />
+      </ProtectedRoute>
+    ),
     meta: { title: "Dashboard", description: "Main app dashboard", icon: "dashboard" },
     children: [
+      // The layout route above already requires one of `dashboardRoles`, so these
+      // need no further gate. Routes below narrow it further.
       {
         path: "clients",
         element: <Spreadsheet />,
@@ -61,7 +81,6 @@ export const routesConfig: AppRoute[] = [
           icon: "calendar_today",
         },
       },
-      // DEV ROUTE: Print all event dates under /calendar
       {
         path: "profile/:clientId?",
         element: <Profile />,
@@ -111,6 +130,15 @@ export const routesConfig: AppRoute[] = [
               title: "Ad-Hoc Query Tool",
               description: "Read-only ad-hoc client query tool",
               icon: "travel_explore",
+            },
+          },
+          {
+            path: "tefap",
+            element: <TefapFormsPage />,
+            meta: {
+              title: "TEFAP Forms",
+              description: "TEFAP template upload and field mapping",
+              icon: "description",
             },
           },
         ],

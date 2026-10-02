@@ -1,5 +1,7 @@
-import React from "react";
-import { Box, Typography } from "@mui/material";
+import React, { useState } from "react";
+import { Box, Button, Typography } from "@mui/material";
+import AssignmentIcon from "@mui/icons-material/Assignment";
+import TefapFillDialog from "./TefapFillDialog";
 import { ClientProfileKey, InputType } from "../types";
 import { deliveryDate } from "../../../utils/deliveryDate";
 import { formatLastEditedTimestamp } from "../../../utils/dates";
@@ -21,6 +23,10 @@ interface MiscellaneousFormProps {
   configFields: ConfigField[];
   fieldValues: Record<string, string>;
   handleFieldChange: (key: string, value: string) => void;
+  /** Present once the client is saved, so a TEFAP form can be attached to them. */
+  clientId?: string | null;
+  /** Lets Profile refresh its own copy of the certification date after a fill. */
+  onTefapCertUpdated?: (certExpiresOn: string) => void;
 }
 
 const narrativeTextSx = {
@@ -46,7 +52,10 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
   configFields = [],
   fieldValues,
   handleFieldChange,
+  clientId,
+  onTefapCertUpdated,
 }) => {
+  const [tefapOpen, setTefapOpen] = useState(false);
   const tefapCertDisplay = clientProfile.tefapCertDate
     ? deliveryDate.toDisplayString(clientProfile.tefapCertDate)
     : "N/A";
@@ -60,6 +69,17 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
 
   return (
     <Box sx={{ width: "100%" }}>
+      {/* Mounted only while open: the dialog loads forms and uses notifications
+          on mount, and neither should happen for a profile nobody opened it on. */}
+      {clientId && tefapOpen && (
+        <TefapFillDialog
+          open={tefapOpen}
+          clientId={clientId}
+          client={clientProfile}
+          onClose={() => setTefapOpen(false)}
+          onSubmitted={(certExpiresOn) => onTefapCertUpdated?.(certExpiresOn)}
+        />
+      )}
       {/* Unified grid for main and config fields */}
       <Box
         sx={{
@@ -86,20 +106,49 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           {isEditing ? (
             <Box sx={{ minHeight: 120, width: "100%" }}>{renderField("tefapCertDate", "date")}</Box>
           ) : (
-            <Typography
-              sx={{
-                fontWeight: 600,
-                fontSize: "1.15rem",
-                lineHeight: 1,
-                mt: 0,
-                mb: 0,
-                pt: 0,
-                textAlign: "left",
-                pl: 0,
-              }}
-            >
-              {tefapCertDisplay}
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+              <Typography
+                sx={{
+                  fontWeight: 600,
+                  fontSize: "1.15rem",
+                  lineHeight: 1,
+                  mt: 0,
+                  mb: 0,
+                  pt: 0,
+                  textAlign: "left",
+                  pl: 0,
+                }}
+              >
+                {tefapCertDisplay}
+              </Typography>
+              {clientId && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AssignmentIcon fontSize="small" />}
+                  onClick={() => setTefapOpen(true)}
+                  sx={{
+                    width: "auto",
+                    minWidth: 0,
+                    minHeight: 30,
+                    px: 1.25,
+                    py: 0.25,
+                    textTransform: "none",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    color: "var(--color-primary)",
+                    borderColor: "var(--color-primary)",
+                    "&:hover": {
+                      borderColor: "var(--color-primary-hover)",
+                      backgroundColor: "var(--color-background-green-tint)",
+                    },
+                  }}
+                >
+                  TEFAP form
+                </Button>
+              )}
+            </Box>
           )}
         </Box>
         <Box>

@@ -58,3 +58,21 @@ export const getClusterTextColor = (backgroundColor: string): string => {
 
   return luminance > 0.5 ? "#000000" : "#ffffff";
 };
+
+// DC Ward colors - each ward gets a unique translucent color.
+// Shared by the on-screen routes map legend and the printed route report overlays;
+// changing a value here keeps the two in sync.
+export const WARD_COLORS: { [key: string]: string } = {
+  "1": "#FF0000", // Red
+  "2": "#00FF00", // Green
+  "3": "#0000FF", // Blue
+  "4": "#FFFF00", // Yellow
+  "5": "#FF00FF", // Magenta
+  "6": "#00FFFF", // Cyan
+  "7": "#FFA500", // Orange
+  "8": "#800080", // Purple
+};
+
+export const WARD_FALLBACK_COLOR = "#999999";
+
+export const WARD_FILL_OPACITY = 0.2;

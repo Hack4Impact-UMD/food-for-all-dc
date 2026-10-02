@@ -107,6 +107,18 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   const startDateKey = useMemo(() => convertToYYYYMMDD(startDate), [startDate]);
   const wasOpenRef = useRef(false);
 
+  // A date input whose min is after its max disables every day in the browser's calendar, so the
+  // picker opens but nothing in it can be clicked. Drop the max in that case and let
+  // getDateWindowError explain the conflict instead of handing the user a dead calendar.
+  const resolvePickerMax = useCallback(
+    (minISO?: string | null, maxISO?: string | null): string | undefined => {
+      if (!maxISO) return undefined;
+      if (minISO && minISO > maxISO) return undefined;
+      return maxISO;
+    },
+    []
+  );
+
   const clampDateToClientWindow = useCallback(
     (dateISO: string, startISO?: string | null, endISO?: string | null): string => {
       let nextDate = dateISO;
@@ -1137,7 +1149,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
               required
               error={newDelivery._repeatsEndDateError}
               min={newDelivery.deliveryDate || clientStartDateISO || undefined}
-              max={clientEndDateISO || undefined}
+              max={resolvePickerMax(
+                newDelivery.deliveryDate || clientStartDateISO,
+                clientEndDateISO
+              )}
               setError={(err: string | null) => {
                 setNewDelivery((prev: NewDelivery) => ({
                   ...prev,
@@ -1164,7 +1179,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
               required={String(newDelivery.recurrence) !== "None"}
               error={newDelivery._repeatsEndDateError}
               min={newDelivery.deliveryDate || clientStartDateISO || undefined}
-              max={clientEndDateISO || undefined}
+              max={resolvePickerMax(
+                newDelivery.deliveryDate || clientStartDateISO,
+                clientEndDateISO
+              )}
               setError={(err: string | null) => {
                 setNewDelivery((prev: NewDelivery) => ({
                   ...prev,

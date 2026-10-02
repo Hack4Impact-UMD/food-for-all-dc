@@ -12,6 +12,8 @@ import { batchGetClientDeliverySummaries } from "../utils/lastDeliveryDate";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { COLLECTIONS, CollectionKey, getFieldDef, QueryFilter } from "../types/query-tool-types";
 import { mapClientDocToSpreadsheetBaseRow } from "./client-service";
+import { deliveryDate } from "../utils/deliveryDate";
+import { formatDateMask, normalizeAssignedTime, normalizePhoneNumber } from "../utils/queryToolFormatting";
 
 export interface ClientQueryResult {
   rows: RowData[];
@@ -52,10 +54,18 @@ const startOfNextDay = (date: Date): Date => {
   return d;
 };
 
+const normalizeFilterValue = (
+  fieldDef: ReturnType<typeof getFieldDef>,
+  value: unknown
+): unknown => (fieldDef?.normalizeValue ? fieldDef.normalizeValue(value) : value);
+
+const queryValuesForFilterValue = (
+  fieldDef: ReturnType<typeof getFieldDef>,
+  value: unknown
+): unknown[] => (fieldDef?.queryValues ? fieldDef.queryValues(value) : [normalizeFilterValue(fieldDef, value)]);
+
 const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): unknown => {
   const fieldDef = getFieldDef(collectionKey, filter.field);
-  const normalizeValue = (value: unknown) =>
-    fieldDef?.format === "phone" ? String(value).replace(/\D/g, "") : value;
 
   if (filter.operator === "in" || filter.operator === "not-in" || filter.operator === "array-contains-any") {
     const values = Array.isArray(filter.value)
@@ -65,19 +75,58 @@ const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): un
       .map((v) => v.trim())
       .filter(Boolean);
     if (fieldDef?.type === "number") return values.map((value) => Number(value));
-    return values.map(normalizeValue);
+    return values.flatMap((value) => queryValuesForFilterValue(fieldDef, value));
   }
 
-  return normalizeValue(filter.value);
+  if (fieldDef?.type === "number") return Number(filter.value);
+  if (Array.isArray(filter.value)) {
+    return filter.value.map((value) => normalizeFilterValue(fieldDef, value));
+  }
+  const queryValues = queryValuesForFilterValue(fieldDef, filter.value);
+  if (filter.operator === "==" && queryValues.length > 1) return queryValues;
+  if (queryValues.length > 0) return queryValues[0];
+  if (fieldDef?.format === "date" && filter.value instanceof Date) return formatDateMask(filter.value);
+  return filter.value;
 };
+
+const getRowFieldValue = (row: RowData, field: string): unknown =>
+  field.split(".").reduce<unknown>((current, key) => {
+    return current && typeof current === "object"
+      ? (current as Record<string, unknown>)[key]
+      : undefined;
+  }, row);
+
+const isClientSideFilter = (collectionKey: CollectionKey, filter: QueryFilter): boolean => {
+  const fieldDef = getFieldDef(collectionKey, filter.field);
+  if (fieldDef?.computed || fieldDef?.format === "phone") return true;
+  if (fieldDef?.normalizeValue && ["!=", "not-in"].includes(filter.operator as string)) return true;
+  // Firestore can only express whole-day ranges on a timestamp; day-equality
+  // negation and day lists are resolved against fetched rows instead.
+  return (
+    fieldDef?.type === "timestamp" && ["!=", "in", "not-in"].includes(filter.operator as string)
+  );
+};
+
+/**
+ * Firestore orders values by type, and every String sorts above every Timestamp.
+ * A `>=` range therefore also matches documents whose field is still an
+ * unmigrated string, and `<` silently drops them. Verify the stored value is
+ * really a timestamp before trusting a range result.
+ */
+const isStoredTimestamp = (value: unknown): boolean =>
+  value instanceof Date ||
+  (typeof value === "object" &&
+    value !== null &&
+    (typeof (value as { toDate?: unknown }).toDate === "function" ||
+      typeof (value as { seconds?: unknown }).seconds === "number"));
 
 /** Filters that translate directly into a Firestore `where()` constraint. */
 export const getFirestoreFilters = (collectionKey: CollectionKey, filters: QueryFilter[]): QueryFilter[] =>
-  filters.filter((f) => !getFieldDef(collectionKey, f.field)?.computed);
+  filters.filter((filter) => !isClientSideFilter(collectionKey, filter));
 
-/** Filters that must be applied to already-fetched results (e.g. computed `activeStatus`). */
+/** Filters that must be applied to already-fetched results (e.g. computed fields or normalized phones). */
 export const getComputedFilters = (collectionKey: CollectionKey, filters: QueryFilter[]): QueryFilter[] =>
-  filters.filter((f) => getFieldDef(collectionKey, f.field)?.computed);
+  filters.filter((filter) => isClientSideFilter(collectionKey, filter));
 
 /** Builds the Firestore constraint(s) for a single filter. Timestamp filters expand
  * into whole-day range constraints since the field itself stores an exact instant. */
@@ -86,32 +135,97 @@ const buildConstraintsForFilter = (collectionKey: CollectionKey, filter: QueryFi
 
   if (fieldDef?.type === "timestamp") {
     const day = parseFilterDate(filter.value);
+    const deliveryBounds =
+      fieldDef.field === "deliveryDate" ? deliveryDate.getUTCDateBounds(day) : null;
+    const dayStart = deliveryBounds?.start ?? startOfDay(day);
+    const nextDayStart = deliveryBounds?.endExclusive ?? startOfNextDay(day);
+    const dayEnd = deliveryBounds
+      ? new Date(nextDayStart.getTime() - 1)
+      : endOfDay(day);
     switch (filter.operator) {
       case "==":
         return [
-          where(filter.field, ">=", Timestamp.fromDate(startOfDay(day))),
-          where(filter.field, "<", Timestamp.fromDate(startOfNextDay(day))),
+          where(filter.field, ">=", Timestamp.fromDate(dayStart)),
+          where(filter.field, "<", Timestamp.fromDate(nextDayStart)),
         ];
       case ">":
-        return [where(filter.field, ">", Timestamp.fromDate(endOfDay(day)))];
+        return [where(filter.field, ">", Timestamp.fromDate(dayEnd))];
       case ">=":
-        return [where(filter.field, ">=", Timestamp.fromDate(startOfDay(day)))];
+        return [where(filter.field, ">=", Timestamp.fromDate(dayStart))];
       case "<":
-        return [where(filter.field, "<", Timestamp.fromDate(startOfDay(day)))];
+        return [where(filter.field, "<", Timestamp.fromDate(dayStart))];
       case "<=":
-        return [where(filter.field, "<=", Timestamp.fromDate(endOfDay(day)))];
+        return [where(filter.field, "<=", Timestamp.fromDate(dayEnd))];
       default:
         return [where(filter.field, filter.operator as any, Timestamp.fromDate(day))];
     }
   }
 
-  return [where(filter.field, filter.operator as any, toFirestoreValue(collectionKey, filter))];
+  const firestoreValue = toFirestoreValue(collectionKey, filter);
+  if (filter.operator === "==" && Array.isArray(firestoreValue)) {
+    return [where(filter.field, "in", firestoreValue)];
+  }
+
+  return [where(filter.field, filter.operator as any, firestoreValue)];
 };
 
 export const buildFirestoreConstraints = (collectionKey: CollectionKey, filters: QueryFilter[]) =>
   getFirestoreFilters(collectionKey, filters).flatMap((f) => buildConstraintsForFilter(collectionKey, f));
 
-const matchesComputedFilter = (row: RowData, filter: QueryFilter): boolean => {
+const matchesComputedFilter = (
+  collectionKey: CollectionKey,
+  row: RowData,
+  filter: QueryFilter
+): boolean => {
+  const fieldDef = getFieldDef(collectionKey, filter.field);
+
+  if (fieldDef?.type === "timestamp") {
+    const actual = deliveryDate.tryToISODateString(getRowFieldValue(row, filter.field) as any);
+    const expected = (Array.isArray(filter.value) ? filter.value : [filter.value])
+      .map((value) => deliveryDate.tryToISODateString(value as any))
+      .filter((value): value is string => Boolean(value));
+
+    if (!actual) return filter.operator === "!=" || filter.operator === "not-in";
+
+    switch (filter.operator) {
+      case "!=":
+        return actual !== expected[0];
+      case "in":
+        return expected.includes(actual);
+      case "not-in":
+        return !expected.includes(actual);
+      default:
+        return true;
+    }
+  }
+
+  if (fieldDef?.normalizeValue) {
+    const actual = normalizeFilterValue(fieldDef, getRowFieldValue(row, filter.field));
+    const expectedValues = (Array.isArray(filter.value) ? filter.value : [filter.value])
+      .flatMap((value) => queryValuesForFilterValue(fieldDef, value))
+      .filter((value) => value !== "");
+
+    switch (filter.operator) {
+      case "!=":
+        return !expectedValues.includes(actual);
+      case "not-in":
+        return !expectedValues.includes(actual);
+      default:
+        return true;
+    }
+  }
+
+  if (fieldDef?.format === "phone") {
+    const actual = normalizePhoneNumber(getRowFieldValue(row, filter.field));
+    const expected = (Array.isArray(filter.value) ? filter.value : [filter.value])
+      .map(normalizePhoneNumber)
+      .filter(Boolean);
+
+    if (filter.operator === "==") return actual === expected[0];
+    if (filter.operator === "!=") return actual !== expected[0];
+    if (filter.operator === "in") return expected.includes(actual);
+    if (filter.operator === "not-in") return !expected.includes(actual);
+  }
   if (filter.field === "activeStatus") {
     const expected = filter.value === true || filter.value === "true";
     return Boolean(row.activeStatus) === expected;
@@ -130,7 +244,123 @@ const matchesComputedFilter = (row: RowData, filter: QueryFilter): boolean => {
     if (filter.operator === "in") return expected.includes(actual);
     if (filter.operator === "not-in") return !expected.includes(actual);
   }
+  if (filter.field === "assignedDriverName") {
+    const normalizeDriver = (value: unknown) => String(value ?? "").trim().toLowerCase();
+    const actual = normalizeDriver(row.assignedDriverName);
+    const expected = Array.isArray(filter.value)
+      ? filter.value.map(normalizeDriver)
+      : String(filter.value).split(",").map(normalizeDriver).filter(Boolean);
+
+    if (filter.operator === "==") return actual === expected[0];
+    if (filter.operator === "!=") return actual !== expected[0];
+    if (filter.operator === "in") return expected.includes(actual);
+    if (filter.operator === "not-in") return !expected.includes(actual);
+  }
+  if (filter.field === "cluster") {
+    const toRouteNumber = (value: unknown): number => {
+      const match = String(value ?? "").match(/\d+/);
+      return match ? Number(match[0]) : Number.NaN;
+    };
+    const actual = toRouteNumber(row.cluster);
+    const expectedValues = Array.isArray(filter.value)
+      ? filter.value.map(toRouteNumber)
+      : String(filter.value).split(",").map(toRouteNumber);
+    const expected = expectedValues[0];
+    if (!Number.isFinite(actual) || !Number.isFinite(expected)) return false;
+    switch (filter.operator) {
+      case "==": return actual === expected;
+      case "!=": return actual !== expected;
+      case ">": return actual > expected;
+      case ">=": return actual >= expected;
+      case "<": return actual < expected;
+      case "<=": return actual <= expected;
+      case "in": return expectedValues.includes(actual);
+      case "not-in": return !expectedValues.includes(actual);
+      default: return false;
+    }
+  }
+  if (filter.field === "assignedTime") {
+    const actual = normalizeAssignedTime(row.time);
+    const expectedValues = Array.isArray(filter.value)
+      ? filter.value.map(normalizeAssignedTime)
+      : String(filter.value).split(",").map(normalizeAssignedTime).filter(Boolean);
+    switch (filter.operator) {
+      case "==": return actual === expectedValues[0];
+      case "!=": return actual !== expectedValues[0];
+      case ">": return Number(actual) > Number(expectedValues[0]);
+      case ">=": return Number(actual) >= Number(expectedValues[0]);
+      case "<": return Number(actual) < Number(expectedValues[0]);
+      case "<=": return Number(actual) <= Number(expectedValues[0]);
+      case "in": return expectedValues.includes(actual);
+      case "not-in": return !expectedValues.includes(actual);
+      default: return false;
+    }
+  }
+  if (filter.field === "ward") {
+    const normalizeWard = (value: unknown) => {
+      const match = String(value ?? "").match(/\d+/);
+      return match ? match[0] : "";
+    };
+    const actual = normalizeWard(row["join.ward"] ?? row.ward);
+    const expectedValues = Array.isArray(filter.value)
+      ? filter.value.map(normalizeWard)
+      : String(filter.value).split(",").map(normalizeWard).filter(Boolean);
+    switch (filter.operator) {
+      case "==": return actual === expectedValues[0];
+      case "!=": return actual !== expectedValues[0];
+      case ">": return Number(actual) > Number(expectedValues[0]);
+      case ">=": return Number(actual) >= Number(expectedValues[0]);
+      case "<": return Number(actual) < Number(expectedValues[0]);
+      case "<=": return Number(actual) <= Number(expectedValues[0]);
+      case "in": return expectedValues.includes(actual);
+      case "not-in": return !expectedValues.includes(actual);
+      default: return false;
+    }
+  }
   return true;
+};
+
+const matchesDirectFilter = (collectionKey: CollectionKey, row: RowData, filter: QueryFilter): boolean => {
+  const value = getRowFieldValue(row, filter.field);
+  const values = Array.isArray(filter.value) ? filter.value : String(filter.value).split(",").map((item) => item.trim());
+  const fieldDef = getFieldDef(collectionKey, filter.field);
+  const comparable = (item: unknown): string | number => {
+    const normalizedItem = normalizeFilterValue(fieldDef, item);
+    if (fieldDef?.type === "number") return Number(normalizedItem);
+    if (item && typeof item === "object" && typeof (item as { toDate?: unknown }).toDate === "function") {
+      return (item as { toDate: () => Date }).toDate().getTime();
+    }
+    return String(normalizedItem ?? "").toLowerCase();
+  };
+  const actualValues = Array.isArray(value) ? value : [value];
+  const actual = comparable(actualValues[0]);
+  const expected = values.flatMap((item) => queryValuesForFilterValue(fieldDef, item)).map(comparable);
+  switch (filter.operator) {
+    case "==": return actualValues.some((item) => comparable(item) === expected[0]);
+    case "!=": return actualValues.every((item) => comparable(item) !== expected[0]);
+    case ">": return actual > expected[0];
+    case ">=": return actual >= expected[0];
+    case "<": return actual < expected[0];
+    case "<=": return actual <= expected[0];
+    case "in": return expected.includes(actual);
+    case "not-in": return !expected.includes(actual);
+    case "array-contains": return Array.isArray(value) && value.some((entry) => comparable(entry) === expected[0]);
+    case "array-contains-any": return Array.isArray(value) && value.some((entry) => expected.includes(comparable(entry)));
+    default: return false;
+  }
+};
+
+const matchesFilterExpression = (collectionKey: CollectionKey, row: RowData, filters: QueryFilter[]): boolean => {
+  const groups: QueryFilter[][] = [[]];
+  filters.forEach((filter, index) => {
+    if (index > 0 && filter.logic === "OR") groups.push([]);
+    groups[groups.length - 1].push(filter);
+  });
+  return groups.some((group) => group.every((filter) =>
+    isClientSideFilter(collectionKey, filter)
+      ? matchesComputedFilter(collectionKey, row, filter)
+      : matchesDirectFilter(collectionKey, row, filter)
+  ));
 };
 
 const isIndexRequiredError = (error: unknown): boolean => {
@@ -153,6 +383,83 @@ const mapRawDocToRow = (collectionKey: CollectionKey, id: string, raw: any): Row
     };
   }
   return { id, uid: id, ...raw };
+};
+
+const enrichDeliveryRouteAssignments = async (rows: RowData[]): Promise<RowData[]> => {
+  if (rows.length === 0) return rows;
+
+  let clustersSnapshot;
+  try {
+    clustersSnapshot = await getDocs(collection(db, dataSources.firebase.clustersCollection));
+  } catch {
+    return rows;
+  }
+  if (!clustersSnapshot || !Array.isArray(clustersSnapshot.docs)) return rows;
+  type RouteAssignments = {
+    clusters: Array<{ id?: unknown; deliveries?: unknown[]; driver?: unknown; time?: unknown }>;
+    clientOverrides: Array<{ clientId?: unknown; driver?: unknown; time?: unknown }>;
+  };
+  const assignmentsByDate = new Map<string, RouteAssignments>();
+
+  const getClusterDateKey = (value: unknown): string | null => {
+    const date = typeof Timestamp === "function" && value instanceof Timestamp
+      ? value.toDate()
+      : value && typeof value === "object" && typeof (value as { toDate?: unknown }).toDate === "function"
+        ? (value as { toDate: () => Date }).toDate()
+        : null;
+    if (date && !Number.isNaN(date.getTime())) {
+      return date.toISOString().slice(0, 10);
+    }
+    return deliveryDate.tryToISODateString(value as Parameters<typeof deliveryDate.tryToISODateString>[0]);
+  };
+
+  clustersSnapshot.docs.forEach((clusterDocument) => {
+    const data = clusterDocument.data();
+    const dateKey = getClusterDateKey(data.date);
+    if (!dateKey) return;
+    const assignments = {
+      clusters: Array.isArray(data.clusters) ? data.clusters : [],
+      clientOverrides: Array.isArray(data.clientOverrides) ? data.clientOverrides : [],
+    };
+    assignmentsByDate.set(dateKey, assignments);
+  });
+
+  const normalizeId = (value: unknown) => String(value ?? "").trim();
+  const findAssignment = (
+    assignments: RouteAssignments | undefined,
+    clientId: string
+  ) => {
+    if (!assignments) return undefined;
+    return assignments.clusters.find((candidate) =>
+      Array.isArray(candidate.deliveries) && candidate.deliveries.some((deliveryId) => {
+        const normalizedDeliveryId =
+          deliveryId && typeof deliveryId === "object" && "id" in deliveryId
+            ? (deliveryId as { id?: unknown }).id
+            : deliveryId;
+        return normalizeId(normalizedDeliveryId) === clientId;
+      })
+    );
+  };
+
+  return rows.map((row) => {
+    const dateKey = deliveryDate.tryToISODateString(row.deliveryDate);
+    const assignments = dateKey ? assignmentsByDate.get(dateKey) : undefined;
+    if (!assignments) return row;
+
+    const clientId = normalizeId(row.clientId ?? row.clientid ?? row.uid);
+    const cluster = findAssignment(assignments, clientId);
+    const override = assignments.clientOverrides.find(
+      (candidate) => normalizeId(candidate.clientId) === clientId
+    );
+    const driver = override?.driver || cluster?.driver;
+    return {
+      ...row,
+      cluster: cluster?.id ?? row.cluster,
+      assignedDriverName:
+        typeof driver === "string" ? driver : (driver as { name?: string } | undefined)?.name ?? row.assignedDriverName,
+      time: override?.time || cluster?.time || row.time,
+    };
+  });
 };
 
 /** Fetches allowlisted join fields for a batch of related document ids. */
@@ -190,20 +497,48 @@ export async function runClientQuery(
 ): Promise<ClientQueryResult> {
   try {
     const collectionDef = COLLECTIONS[collectionKey];
-    const constraints = buildFirestoreConstraints(collectionKey, filters);
+    const hasOrLogic = filters.some((filter, index) => index > 0 && filter.logic === "OR");
+    const disjunctiveFilterCount = filters.filter((filter) =>
+      ["in", "not-in", "array-contains", "array-contains-any"].includes(filter.operator)
+    ).length;
+    const requiresClientSideExpression = hasOrLogic || disjunctiveFilterCount > 1;
+    const constraints = requiresClientSideExpression ? [] : buildFirestoreConstraints(collectionKey, filters);
     const q = query(
       collection(db, firebaseCollectionName(collectionDef.collectionKey)),
       ...constraints
     );
 
     const snapshot = await getDocs(q);
-    let rows: RowData[] = snapshot.docs.map((docSnap) =>
+    // Range constraints on a timestamp field also match unmigrated string values,
+    // so verify against the raw document before mapping. This only applies when the
+    // range actually ran in Firestore: under an OR expression no constraints were
+    // sent, every filter is re-evaluated per group below, and dropping a document
+    // here would deny it the other branches it could still match on.
+    const rangeTimestampFields = requiresClientSideExpression
+      ? []
+      : getFirestoreFilters(collectionKey, filters)
+          .filter(
+            (filter) =>
+              getFieldDef(collectionKey, filter.field)?.type === "timestamp" &&
+              [">", ">=", "<", "<=", "=="].includes(filter.operator as string)
+          )
+          .map((filter) => filter.field);
+
+    const matchedDocs =
+      rangeTimestampFields.length === 0
+        ? snapshot.docs
+        : snapshot.docs.filter((docSnap) =>
+            rangeTimestampFields.every((field) =>
+              isStoredTimestamp(getRowFieldValue(docSnap.data() as RowData, field))
+            )
+          );
+
+    let rows: RowData[] = matchedDocs.map((docSnap) =>
       mapRawDocToRow(collectionKey, docSnap.id, docSnap.data())
     );
 
-    const computedFilters = getComputedFilters(collectionKey, filters);
-    if (computedFilters.length > 0) {
-      rows = rows.filter((row) => computedFilters.every((f) => matchesComputedFilter(row, f)));
+    if (collectionKey === "deliveries") {
+      rows = await enrichDeliveryRouteAssignments(rows);
     }
 
     if (collectionKey === "clients" && rows.length > 0) {
@@ -232,6 +567,15 @@ export async function runClientQuery(
         });
         return joinedRow;
       });
+    }
+
+    const computedFilters = getComputedFilters(collectionKey, filters);
+    if (requiresClientSideExpression) {
+      rows = rows.filter((row) => matchesFilterExpression(collectionKey, row, filters));
+    } else if (computedFilters.length > 0) {
+      rows = rows.filter((row) =>
+        computedFilters.every((filter) => matchesComputedFilter(collectionKey, row, filter))
+      );
     }
 
     // Query metadata only (no row contents/PII) — safe to log for troubleshooting.

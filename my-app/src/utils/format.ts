@@ -18,6 +18,9 @@ export const formatPhoneNumber = (phone: string): string => {
   return phone;
 };
 
+export const normalizePhoneInput = (phone: string): string =>
+  phone.replace(/[\p{Cf}\p{Cc}]/gu, "").replace(/\p{Zs}/gu, " ");
+
 export const formatPhoneNumberForSave = (phone: string): string | null => {
   const trimmedPhone = phone.trim();
   if (!trimmedPhone) return "";

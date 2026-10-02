@@ -24,6 +24,7 @@ import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import DescriptionIcon from "@mui/icons-material/Description";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import Tab from "./NavBar/Tab";
 import logo from "../../assets/ffa-banner-logo.webp";
 import { Typography, useMediaQuery, MenuItem, Select } from "@mui/material";
@@ -119,7 +120,9 @@ export default function BasePage() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("Delivery Schedule");
   const [pageTitle, setPageTitle] = useState("");
-  const { logout, name, userRole } = useAuth();
+  // Access is enforced by the ProtectedRoute wrapping this layout in routesConfig,
+  // which also redirects to "/" once the session clears on logout.
+  const { logout, name, userRole, user, error: authError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -141,6 +144,9 @@ export default function BasePage() {
     } else if (currentPath === "/clients/query") {
       setPageTitle("Ad-Hoc Query Tool");
       setTab("Ad-Hoc Query Tool");
+    } else if (currentPath === "/tefap") {
+      setPageTitle("TEFAP Forms");
+      setTab("Upload TEFAP Forms");
     } else if (currentPath.startsWith("/reports")) {
       // Handle reports routes
       if (currentPath === "/reports/summary") {
@@ -169,12 +175,9 @@ export default function BasePage() {
   };
 
   const handleLogout = async () => {
-    try {
-      await logout();
-      navigate("/"); // Redirect to home without full page reload
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+    // logout() reports failures through the auth error state, which is rendered
+    // in the drawer. ProtectedRoute handles the redirect once the session clears.
+    await logout();
   };
 
   // Conditionally add items based on role
@@ -190,7 +193,12 @@ export default function BasePage() {
     items.push({ text: "Reports", icon: <AssessmentIcon />, link: "/reports/summary" });
 
     if (userRole === UserType.Admin) {
-      items.push({ text: "Ad-Hoc Query Tool", icon: <TravelExploreIcon />, link: "/clients/query" });
+      items.push({
+        text: "Ad-Hoc Query Tool",
+        icon: <TravelExploreIcon />,
+        link: "/clients/query",
+      });
+      items.push({ text: "Upload TEFAP Forms", icon: <CloudUploadIcon />, link: "/tefap" });
     }
 
     return items;
@@ -342,7 +350,12 @@ export default function BasePage() {
         </List>
         <Typography
           sx={{ padding: "8px" }}
-        >{`Logged in as: ${name} (${userRole ?? "Unknown"})`}</Typography>
+        >{`Logged in as: ${name || user?.email || "Unknown"} (${userRole ?? "Unknown"})`}</Typography>
+        {authError && (
+          <Typography role="alert" sx={{ padding: "0 8px 8px", color: "error.main" }}>
+            {authError.message}
+          </Typography>
+        )}
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
         <List sx={{ padding: "0 8px", width: "100%" }}>
           <ListItem key="Documentation" disablePadding sx={{ mb: 1 }}>

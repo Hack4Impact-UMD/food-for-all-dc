@@ -381,10 +381,28 @@ Below is the current mapping used by `ETL/firebase_migration_v2.py` for the new 
 | `MainVulnerability`, `Client's Main Vulnerability (Classification)`, `Eligibility_database`, `Eligibility`, `Unnamed: 29`, `further_information` | `lifeChallenges`, `physicalAilments`, `physicalDisability`, `mentalHealthConditions` |
 | `Notes` (plus ETL-added notes) | `notes` |
 | `Language` | `language` |
-| `StartDate_database` or `StartDate_referral` or `Start Date` | `startDate` |
-| `EndDate` or `End Date` (defaulted/validated by ETL) | `endDate` |
-| `TEFAP_FY25` / `TEFAP FY25` / `TEFAP FY26` | `tefapCertDate` (`03/15/2026` when true, blank when false), legacy `tefapCert`, and `tags` (`TEFAPOnFile`) |
+| `StartDate_database` or `StartDate_referral` or `Start Date` | `startDate` (Timestamp) |
+| `EndDate` or `End Date` (defaulted/validated by ETL) | `endDate` (Timestamp) |
+| `TEFAP_FY25` / `TEFAP FY25` / `TEFAP FY26` | `tefapCertDate` (Timestamp for 2026-03-15 when true, `null` when false), legacy `tefapCert`, and `tags` (`TEFAPOnFile`) |
 | `Active` and date-window logic | `activeStatus` |
+
+#### Date handling
+
+Calendar-date fields (`startDate`, `endDate`, `dob`, `tefapCertDate`, `famStartDate`,
+`referredDate`) are stored as Firestore **Timestamps anchored at noon
+America/New_York**, never as strings. Noon rather than midnight so the calendar day
+still renders correctly for anyone west of Eastern - midnight Eastern is 9pm the
+previous day in Pacific.
+
+All conversion goes through [`client_dates.py`](client_dates.py), which is applied once
+at the write in `import_batch`. It mirrors `my-app/src/utils/clientDate.ts`; the two
+must stay in sync. Empty or unparseable values become `null` rather than a guessed date.
+
+Storing these as Timestamps is what lets the Ad-Hoc Query Tool offer range operators
+(`>`, `>=`, `<`, `<=`) on client dates instead of treating them as text.
+
+`createdAt` and `updatedAt` are instants, not calendar dates - they keep their real
+time-of-day and are not passed through this normalization.
 
 ### Client Referral Form v.3_20_24 (Responses).xlsx (sheet: `Form Responses 1`) -> `referral`
 

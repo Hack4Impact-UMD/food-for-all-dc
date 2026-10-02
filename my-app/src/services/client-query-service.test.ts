@@ -16,6 +16,8 @@ jest.mock("../config/dataSources", () => ({
     firebase: {
       clientsCollection: "client-profile2",
       calendarCollection: "events",
+      clustersCollection: "clusters",
+      usersCollection: "users",
     },
   },
 }));
@@ -32,8 +34,10 @@ jest.mock("firebase/firestore", () => ({
   where: (...args: unknown[]) => mockWhere(...args),
   doc: (..._args: unknown[]) => ({ mocked: "doc" }),
   getDoc: (...args: unknown[]) => mockGetDoc(...args),
-  Timestamp: {
-    fromDate: (date: Date) => ({ mocked: "timestamp", date }),
+  Timestamp: class MockTimestamp {
+    static fromDate(date: Date) {
+      return { mocked: "timestamp", date };
+    }
   },
 }));
 
@@ -46,6 +50,12 @@ const mockMapClientDocToSpreadsheetBaseRow = (id: string, raw: any) => ({
   uid: id,
   firstName: raw.firstName ?? "",
   lastName: raw.lastName ?? "",
+  // The real mapper runs client dates through normalizeDateStringField, which
+  // yields a yyyy-MM-dd string for a Timestamp and "" for anything unreadable.
+  dob:
+    raw.dob && typeof raw.dob.toDate === "function"
+      ? raw.dob.toDate().toISOString().slice(0, 10)
+      : (raw.dob ?? ""),
   ward: raw.ward ?? "",
   zipCode: raw.zipCode ?? "",
   tags: raw.tags ?? [],
@@ -90,10 +100,49 @@ describe("client-query-service", () => {
     expect(buildFirestoreConstraints("clients", filters)).toHaveLength(0);
   });
 
-  it("builds a ward == value constraint", () => {
+  it("builds a native ward constraint and normalizes typed labels", () => {
     const filters = [makeFilter("ward", "==", "Ward 3")];
     buildFirestoreConstraints("clients", filters);
-    expect(mockWhere).toHaveBeenCalledWith("ward", "==", "Ward 3");
+    expect(getFirestoreFilters("clients", filters)).toHaveLength(1);
+    expect(getComputedFilters("clients", filters)).toHaveLength(0);
+    expect(mockWhere).toHaveBeenCalledWith("ward", "in", ["3", "Ward 3"]);
+  });
+
+  it("normalizes ward list filters before querying Firestore", () => {
+    const filters = [makeFilter("ward", "in", ["Ward 1", "2"])];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith("ward", "in", ["1", "Ward 1", "2", "Ward 2"]);
+  });
+
+  it("does not collapse scalar ward filters left with an array value", () => {
+    const filters = [makeFilter("ward", "==", ["1", "2"])];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith("ward", "in", ["1", "2"]);
+  });
+
+  it("preserves non-empty ward values without digits instead of querying an empty string", () => {
+    const filters = [makeFilter("ward", "==", "No address")];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith("ward", "==", "No address");
+  });
+
+  it("normalizes ward comparisons on the OR/client-side path", async () => {
+    mockGetDocs.mockResolvedValue(
+      createSnapshot([
+        { id: "stored-digit", data: () => ({ ward: "3", zipCode: "10000" }) },
+        { id: "stored-label", data: () => ({ ward: "Ward 3", zipCode: "10000" }) },
+        { id: "other", data: () => ({ ward: "4", zipCode: "10000" }) },
+      ])
+    );
+
+    const filters = [
+      makeFilter("ward", "==", "Ward 3"),
+      { ...makeFilter("zipCode", "==", "20001"), logic: "OR" as const },
+    ];
+
+    const result = await runClientQuery("clients", filters);
+
+    expect(result.rows.map((row) => row.id)).toEqual(["stored-digit", "stored-label"]);
   });
 
   it("builds a tags array-contains constraint", () => {
@@ -108,6 +157,62 @@ describe("client-query-service", () => {
     expect(mockWhere).toHaveBeenCalledWith("total", ">=", 3);
   });
 
+  it("converts a numeric option value to a number before querying Firestore", () => {
+    const filters = [makeFilter("total", "==", "4")];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith("total", "==", 4);
+  });
+
+  it("matches phone filters against every supported stored format", async () => {
+    const filters = [makeFilter("phone", "==", "(202) 489-8676")];
+    mockGetDocs.mockResolvedValue(
+      createSnapshot([
+        { id: "digits", data: () => ({ phone: "2024898676" }) },
+        { id: "punctuation", data: () => ({ phone: "202-489-8676" }) },
+        { id: "country-code", data: () => ({ phone: "+1 (202) 489-8676" }) },
+        { id: "different", data: () => ({ phone: "5713301121" }) },
+      ])
+    );
+
+    expect(getFirestoreFilters("users", filters)).toHaveLength(0);
+    expect(getComputedFilters("users", filters)).toHaveLength(1);
+    expect(buildFirestoreConstraints("users", filters)).toHaveLength(0);
+
+    const result = await runClientQuery("users", filters);
+
+    expect(result.rows.map((row) => row.id)).toEqual(["digits", "punctuation", "country-code"]);
+    expect(mockWhere).not.toHaveBeenCalled();
+  });
+
+  it("normalizes each value in a not-in phone filter", async () => {
+    const filters = [
+      makeFilter("phone", "not-in", ["(571) 330-1121", "2024898676"]),
+    ];
+    mockGetDocs.mockResolvedValue(
+      createSnapshot([
+        { id: "excluded-formatted", data: () => ({ phone: "571-330-1121" }) },
+        { id: "excluded-digits", data: () => ({ phone: "2024898676" }) },
+        { id: "included", data: () => ({ phone: "3015550100" }) },
+      ])
+    );
+
+    const result = await runClientQuery("users", filters);
+
+    expect(result.rows.map((row) => row.id)).toEqual(["included"]);
+  });
+
+  it("keeps role filtering in Firestore while applying phone filtering client-side", () => {
+    const filters = [
+      makeFilter("role", "==", "Manager"),
+      makeFilter("phone", "==", "2024898676"),
+    ];
+
+    buildFirestoreConstraints("users", filters);
+
+    expect(mockWhere).toHaveBeenCalledTimes(1);
+    expect(mockWhere).toHaveBeenCalledWith("role", "==", "Manager");
+  });
+
   it("converts a date-only updatedAt filter into a start-of-day Firestore Timestamp", () => {
     const filters = [makeFilter("updatedAt", ">=", "2024-01-01")];
     buildFirestoreConstraints("clients", filters);
@@ -118,6 +223,57 @@ describe("client-query-service", () => {
         mocked: "timestamp",
         date: new Date(2024, 0, 1, 0, 0, 0, 0),
       })
+    );
+  });
+
+  it("uses a Date from the picker for timestamp filters", () => {
+    const date = new Date(2027, 7, 24);
+    const filters = [makeFilter("updatedAt", ">=", date)];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith(
+      "updatedAt",
+      ">=",
+      expect.objectContaining({
+        mocked: "timestamp",
+        date: new Date(2027, 7, 24, 0, 0, 0, 0),
+      })
+    );
+  });
+
+  it("expands a client date filter from the picker into a whole-day range", () => {
+    const filters = [makeFilter("dob", "==", new Date(2027, 7, 24))];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith(
+      "dob",
+      ">=",
+      expect.objectContaining({ date: new Date(2027, 7, 24, 0, 0, 0, 0) })
+    );
+    expect(mockWhere).toHaveBeenCalledWith(
+      "dob",
+      "<",
+      expect.objectContaining({ date: new Date(2027, 7, 25, 0, 0, 0, 0) })
+    );
+    expect(mockWhere).toHaveBeenCalledTimes(2);
+  });
+
+  it("supports range operators on client dates now that they are timestamps", () => {
+    const filters = [makeFilter("startDate", ">=", new Date(2027, 7, 24))];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith(
+      "startDate",
+      ">=",
+      expect.objectContaining({ mocked: "timestamp" })
+    );
+  });
+
+  // Firestore orders every String above every Timestamp, so a range constraint
+  // alone would also return unmigrated string values.
+  it("keeps !=/in/not-in off the Firestore query for timestamp fields", () => {
+    expect(getFirestoreFilters("clients", [makeFilter("startDate", "!=", "2027-08-24")])).toEqual(
+      []
+    );
+    expect(getComputedFilters("clients", [makeFilter("startDate", "in", ["2027-08-24"])])).toHaveLength(
+      1
     );
   });
 
@@ -161,6 +317,43 @@ describe("client-query-service", () => {
     const result = await runClientQuery("clients", [makeFilter("activeStatus", "==", true)]);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].firstName).toBe("Active");
+  });
+
+  // The unmigrated-string guard compensates for a range Firestore actually ran.
+  // Under OR logic no constraints are sent, so applying it there would turn the
+  // date branch into an AND and silently drop the other branch's matches.
+  it("keeps OR matches whose date field never migrated to a Timestamp", async () => {
+    mockGetDocs.mockResolvedValue(
+      createSnapshot([
+        {
+          id: "a",
+          data: () => ({
+            firstName: "Matches the date branch",
+            dob: { toDate: () => new Date(Date.UTC(1950, 0, 1)) },
+            ward: "Ward 1",
+          }),
+        },
+        {
+          id: "b",
+          // dob was cleared to null by the backfill; only the ward branch applies.
+          data: () => ({ firstName: "Matches the ward branch", dob: null, ward: "Ward 5" }),
+        },
+        {
+          id: "c",
+          data: () => ({ firstName: "Matches neither", dob: null, ward: "Ward 2" }),
+        },
+      ])
+    );
+
+    const result = await runClientQuery("clients", [
+      makeFilter("dob", "==", "1950-01-01"),
+      { ...makeFilter("ward", "==", "Ward 5"), logic: "OR" } as QueryFilter,
+    ]);
+
+    expect(result.rows.map((row) => row.firstName)).toEqual([
+      "Matches the date branch",
+      "Matches the ward branch",
+    ]);
   });
 
   it("preserves every allowlisted client field needed by results and exports", async () => {
@@ -222,6 +415,52 @@ describe("client-query-service", () => {
     expect(result.rows.map((row) => row.id)).toEqual(["normal", "restored"]);
   });
 
+  it("filters routes by driver after enriching cluster assignments", async () => {
+    const filters = [makeFilter("assignedDriverName", "==", "Driver One")];
+    mockGetDocs
+      .mockResolvedValueOnce(
+        createSnapshot([
+          {
+            id: "client-1",
+            data: () => ({
+              clientId: "client-1",
+              clientName: "First Client",
+              deliveryDate: "2026-08-16",
+            }),
+          },
+          {
+            id: "client-2",
+            data: () => ({
+              clientId: "client-2",
+              clientName: "Second Client",
+              deliveryDate: "2026-08-16",
+            }),
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
+        createSnapshot([
+          {
+            id: "routes-2026-08-16",
+            data: () => ({
+              date: "2026-08-16",
+              clusters: [
+                { id: "1", deliveries: ["client-1"], driver: "Driver One" },
+                { id: "2", deliveries: ["client-2"], driver: "Driver Two" },
+              ],
+            }),
+          },
+        ])
+      );
+
+    expect(getFirestoreFilters("deliveries", filters)).toHaveLength(0);
+
+    const result = await runClientQuery("deliveries", filters);
+
+    expect(result.rows.map((row) => row.id)).toEqual(["client-1"]);
+    expect(result.rows[0].assignedDriverName).toBe("Driver One");
+  });
+
   it("joins deliveries to the related client and adds joined columns", async () => {
     mockGetDocs.mockResolvedValue(
       createSnapshot([{ id: "evt-1", data: () => ({ clientId: "client-1", clientName: "Jane Doe" }) }])
@@ -239,6 +478,88 @@ describe("client-query-service", () => {
     expect(result.rows[0]["join.ward"]).toBe("Ward 3");
     expect(result.rows[0]["join.zipCode"]).toBe("20001");
     expect(result.rows[0]["join.tags"]).toEqual(["Halal"]);
+  });
+
+  it("only enriches a route from the matching delivery date", async () => {
+    mockGetDocs
+      .mockResolvedValueOnce(
+        createSnapshot([
+          {
+            id: "evt-1",
+            data: () => ({
+              clientId: "client-1",
+              clientName: "Jane Doe",
+              deliveryDate: new Date("2026-08-15T12:00:00Z"),
+            }),
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
+        createSnapshot([
+          {
+            id: "same-day",
+            data: () => ({
+              date: { toDate: () => new Date("2026-08-15T12:00:00Z") },
+              clusters: [{ id: "1", deliveries: ["another-client"] }],
+            }),
+          },
+          {
+            id: "previous-day",
+            data: () => ({
+              date: { toDate: () => new Date("2026-08-14T12:00:00Z") },
+              clusters: [{ id: "9", deliveries: ["client-1"], driver: "Wrong Driver", time: "3" }],
+            }),
+          },
+        ])
+      );
+
+    const result = await runClientQuery("deliveries", [
+      makeFilter("deliveryDate", "==", "2026-08-15"),
+    ]);
+
+    expect(result.rows[0]).toEqual(
+      expect.objectContaining({
+        cluster: undefined,
+        assignedDriverName: undefined,
+        time: undefined,
+      })
+    );
+  });
+
+  it("applies a driver filter after route assignments are enriched", async () => {
+    const filters = [makeFilter("assignedDriverName", "==", "DoorDash")];
+    expect(getFirestoreFilters("deliveries", filters)).toHaveLength(0);
+    expect(getComputedFilters("deliveries", filters)).toHaveLength(1);
+
+    mockGetDocs
+      .mockResolvedValueOnce(
+        createSnapshot([
+          {
+            id: "evt-1",
+            data: () => ({
+              clientId: "client-1",
+              clientName: "Jane Doe",
+              deliveryDate: new Date("2026-08-15T12:00:00Z"),
+            }),
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
+        createSnapshot([
+          {
+            id: "same-day",
+            data: () => ({
+              date: { toDate: () => new Date("2026-08-15T12:00:00Z") },
+              clusters: [{ id: "2", deliveries: ["client-1"], driver: "DoorDash" }],
+            }),
+          },
+        ])
+      );
+
+    const result = await runClientQuery("deliveries", filters);
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].assignedDriverName).toBe("DoorDash");
   });
 
   it("throws a friendly error when Firestore reports a missing index", async () => {

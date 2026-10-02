@@ -2,6 +2,7 @@
 // Runs entirely client-side, before any Firestore query is constructed.
 
 import { CollectionKey, getFieldDef, OPERATORS_BY_TYPE, QueryFilter } from "../types/query-tool-types";
+import { isCompleteQueryDate } from "./queryToolFormatting";
 
 export interface FilterValidationResult {
   valid: boolean;
@@ -11,18 +12,21 @@ export interface FilterValidationResult {
   formErrors: string[];
 }
 
-const SINGLE_USE_OPERATORS = new Set(["in", "not-in", "array-contains-any"]);
-const NEGATION_OPERATORS = new Set(["!=", "not-in"]);
 const LIST_VALUE_LIMITS: Record<string, number> = {
   in: 30,
   "array-contains-any": 30,
   "not-in": 10,
 };
 
+const isListOperator = (operator: string): boolean =>
+  operator === "in" || operator === "not-in" || operator === "array-contains-any";
+
 const isValueEmpty = (value: unknown): boolean => {
   if (value === null || value === undefined) return true;
   if (typeof value === "string") return value.trim().length === 0;
-  if (Array.isArray(value)) return value.length === 0;
+  if (Array.isArray(value)) {
+    return value.length === 0 || value.every((item) => String(item ?? "").trim().length === 0);
+  }
   return false;
 };
 
@@ -38,9 +42,6 @@ export const validateFilters = (
     return { valid: false, fieldErrors, formErrors };
   }
 
-  let arrayContainsCount = 0;
-  let singleUseOperatorCount = 0;
-  let negationOperatorCount = 0;
 
   for (const filter of filters) {
     const fieldDef = getFieldDef(collectionKey, filter.field);
@@ -67,6 +68,24 @@ export const validateFilters = (
       continue;
     }
 
+    if (!isListOperator(filter.operator) && Array.isArray(filter.value)) {
+      fieldErrors[filter.id] = `Choose one value for ${fieldDef.label} with this operator.`;
+      continue;
+    }
+
+    if (isListOperator(filter.operator) && Array.isArray(filter.value)) {
+      const hasBlankValue = filter.value.some((value) => String(value ?? "").trim().length === 0);
+      if (hasBlankValue) {
+        fieldErrors[filter.id] = `Remove blank values for ${fieldDef.label} before running the query.`;
+        continue;
+      }
+    }
+
+    if (fieldDef.format === "date" && !isCompleteQueryDate(filter.value)) {
+      fieldErrors[filter.id] = `Enter a complete valid date for ${fieldDef.label}.`;
+      continue;
+    }
+
     if (filter.operator === "array-contains" && Array.isArray(filter.value)) {
       fieldErrors[filter.id] = `Choose one value for ${fieldDef.label} when using "contains".`;
       continue;
@@ -85,23 +104,6 @@ export const validateFilters = (
       continue;
     }
 
-    if (filter.operator === "array-contains") arrayContainsCount += 1;
-    if (SINGLE_USE_OPERATORS.has(filter.operator)) singleUseOperatorCount += 1;
-    if (NEGATION_OPERATORS.has(filter.operator)) negationOperatorCount += 1;
-  }
-
-  if (arrayContainsCount > 1) {
-    formErrors.push("Only one \"contains\" filter is allowed per query.");
-  }
-
-  if (singleUseOperatorCount > 1) {
-    formErrors.push(
-      "Only one \"is any of\", \"is none of\", or \"contains any of\" filter is allowed per query."
-    );
-  }
-
-  if (negationOperatorCount > 1) {
-    formErrors.push("Only one \"not equals\" or \"is none of\" filter is allowed per query.");
   }
 
   const valid = formErrors.length === 0 && Object.keys(fieldErrors).length === 0;

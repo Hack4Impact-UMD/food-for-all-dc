@@ -35,6 +35,34 @@ describe("validateFilters", () => {
     expect(result.valid).toBe(true);
   });
 
+  it("accepts a complete date from the date picker", () => {
+    const result = validateFilters("deliveries", [
+      makeFilter({ field: "deliveryDate", operator: "==", value: new Date(2027, 7, 24) }),
+    ]);
+
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects an incomplete year from the date picker", () => {
+    const incompleteDate = new Date(2027, 7, 24);
+    incompleteDate.setFullYear(2);
+    const result = validateFilters("deliveries", [
+      makeFilter({ field: "deliveryDate", operator: "==", value: incompleteDate }),
+    ]);
+
+    expect(result.valid).toBe(false);
+    expect(Object.values(result.fieldErrors)[0]).toMatch(/complete valid date/i);
+  });
+
+  it("rejects malformed date text", () => {
+    const result = validateFilters("deliveries", [
+      makeFilter({ field: "deliveryDate", operator: "==", value: "2-08-24" }),
+    ]);
+
+    expect(result.valid).toBe(false);
+    expect(Object.values(result.fieldErrors)[0]).toMatch(/complete valid date/i);
+  });
+
   it("accepts a valid array-contains filter", () => {
     const result = validateFilters("clients", [
       makeFilter({ field: "tags", operator: "array-contains", value: "Halal" }),
@@ -80,41 +108,46 @@ describe("validateFilters", () => {
     expect(Object.values(result.fieldErrors)[0]).toMatch(/not a valid operator/);
   });
 
-  it("rejects more than one array-contains filter", () => {
+  it("allows multiple array-contains filters", () => {
     const result = validateFilters("clients", [
       makeFilter({ field: "tags", operator: "array-contains", value: "Halal" }),
       makeFilter({ field: "tags", operator: "array-contains", value: "Vegan" }),
     ]);
-    expect(result.valid).toBe(false);
-    expect(result.formErrors[0]).toMatch(/Only one "contains" filter/);
+    expect(result.valid).toBe(true);
   });
 
-  it("rejects more than one single-use operator (in/not-in/array-contains-any)", () => {
+  it("allows membership operators across different fields", () => {
     const result = validateFilters("clients", [
       makeFilter({ field: "ward", operator: "in", value: ["Ward 1", "Ward 2"] }),
       makeFilter({ field: "tags", operator: "array-contains-any", value: ["Halal"] }),
     ]);
-    expect(result.valid).toBe(false);
-    expect(result.formErrors[0]).toMatch(/is any of/);
+    expect(result.valid).toBe(true);
   });
 
-  it("rejects combinations of not-in and not equals", () => {
+  it("allows multiple membership operators on the same field", () => {
+    const result = validateFilters("clients", [
+      makeFilter({ field: "ward", operator: "in", value: ["1"] }),
+      makeFilter({ field: "ward", operator: "not-in", value: ["2"] }),
+    ]);
+    expect(result.valid).toBe(true);
+  });
+
+  it("allows combinations of not-in and not equals", () => {
     const result = validateFilters("clients", [
       makeFilter({ field: "ward", operator: "not-in", value: ["Ward 1"] }),
       makeFilter({ field: "city", operator: "!=", value: "Washington" }),
     ]);
 
-    expect(result.valid).toBe(false);
-    expect(result.formErrors.join(" ")).toMatch(/not equals/i);
+    expect(result.valid).toBe(true);
   });
 
-  it("rejects multiple not-equals filters", () => {
+  it("allows multiple not-equals filters", () => {
     const result = validateFilters("clients", [
       makeFilter({ field: "ward", operator: "!=", value: "Ward 1" }),
       makeFilter({ field: "city", operator: "!=", value: "Washington" }),
     ]);
 
-    expect(result.valid).toBe(false);
+    expect(result.valid).toBe(true);
   });
 
   it("enforces Firestore list value limits", () => {

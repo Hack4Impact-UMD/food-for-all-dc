@@ -13,6 +13,7 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
     expect(source).toContain('case "routeid":');
     expect(source).toContain('case "assigneddriver":');
     expect(source).toContain('case "assignedtime":');
+    expect(source).toContain('case "address":');
     expect(source).toContain('case "deliveryinstructions":');
     expect(source).toContain('case "deliveryfreq":');
     expect(source).toContain('case "deliveryfrequency":');
@@ -94,7 +95,13 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
 
   it("shows semicolon-delimited filter guidance in the search placeholder", () => {
     expect(source).toContain(
-      'placeholder=\'Search deliveries (use ; between filters, e.g., cluster:1,2; ward:7; driver:maria; name:"john smith")\''
+      'placeholder=\'Search deliveries (use ; between filters, e.g., address:"123 Main St NE"; cluster:1,2; driver:maria; name:"john smith")\''
     );
+  });
+
+  it("searches the complete displayed route address", () => {
+    expect(source).toContain('address: ["address"]');
+    expect(source).toContain("formatAddressWithQuadrantAndUnit(");
+    expect(source).toContain('`${formattedAddress}${row.zipCode ? ` ${row.zipCode}` : ""}`');
   });
 });

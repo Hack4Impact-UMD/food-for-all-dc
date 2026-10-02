@@ -85,6 +85,23 @@ describe("ClientQueryTool", () => {
     expect(screen.queryByRole("combobox", { name: "Values" })).toBeNull();
   });
 
+  it("offers every valid user role as a smart value", async () => {
+    render(<ClientQueryTool />);
+
+    fireEvent.mouseDown(screen.getByLabelText("Collection"));
+    fireEvent.click(await screen.findByRole("option", { name: "Users" }));
+    fireEvent.mouseDown(screen.getByLabelText("Field"));
+    fireEvent.click(await screen.findByRole("option", { name: "Role" }));
+    fireEvent.mouseDown(screen.getByLabelText("Operator"));
+    fireEvent.click(await screen.findByRole("option", { name: /equals \(==\)/i }));
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Value" }));
+
+    expect(await screen.findByRole("option", { name: "Admin" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Manager" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Client Intake" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Driver" })).toBeNull();
+  });
+
   it("Clear resets filters and results", async () => {
     render(<ClientQueryTool />);
     fireEvent.click(screen.getByRole("button", { name: /Add Filter/i }));
@@ -114,7 +131,7 @@ describe("ClientQueryTool", () => {
     render(<ClientQueryTool />);
 
     fireEvent.mouseDown(screen.getByLabelText("Collection"));
-    fireEvent.click(await screen.findByRole("option", { name: "Deliveries" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Routes" }));
     fireEvent.mouseDown(screen.getByLabelText("Field"));
     fireEvent.click(await screen.findByRole("option", { name: "Client Name" }));
     fireEvent.mouseDown(screen.getByLabelText("Operator"));
@@ -122,7 +139,7 @@ describe("ClientQueryTool", () => {
     fireEvent.change(screen.getByLabelText("Value"), { target: { value: "Nobody" } });
     fireEvent.click(screen.getByRole("button", { name: /Run Query/i }));
 
-    expect(await screen.findByText(/No deliveries matched these filters/i)).toBeTruthy();
+    expect(await screen.findByText(/No routes matched these filters/i)).toBeTruthy();
   });
 
   it("shows a friendly error state when the query service throws", async () => {
@@ -159,7 +176,7 @@ describe("ClientQueryTool", () => {
     render(<ClientQueryTool />);
 
     fireEvent.mouseDown(screen.getByLabelText("Collection"));
-    fireEvent.click(await screen.findByRole("option", { name: "Deliveries" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Routes" }));
     fireEvent.mouseDown(screen.getByLabelText("Field"));
     fireEvent.click(await screen.findByRole("option", { name: "Client Name" }));
     fireEvent.mouseDown(screen.getByLabelText("Operator"));
@@ -171,6 +188,35 @@ describe("ClientQueryTool", () => {
     expect(screen.getAllByRole("columnheader", { name: /Tags/i })).toHaveLength(1);
     expect(screen.getAllByRole("columnheader", { name: /Zip Code/i })).toHaveLength(1);
     expect(screen.getAllByRole("columnheader", { name: /Ward/i })).toHaveLength(1);
+  });
+
+  it("reserves a header row and renders the mirrored scrollbar outside the table layout", async () => {
+    jest.spyOn(clientQueryService, "runClientQuery").mockResolvedValue({
+      rows: [
+        {
+          id: "client-1",
+          uid: "client-1",
+          clientName: "Test Client",
+        } as unknown as ClientQueryResult["rows"][number],
+      ],
+    });
+    render(<ClientQueryTool />);
+
+    fireEvent.mouseDown(screen.getByLabelText("Collection"));
+    fireEvent.click(await screen.findByRole("option", { name: "Clients" }));
+    fireEvent.mouseDown(screen.getByLabelText("Field"));
+    fireEvent.click(await screen.findByRole("option", { name: "First Name" }));
+    fireEvent.mouseDown(screen.getByLabelText("Operator"));
+    fireEvent.click(await screen.findByRole("option", { name: /equals \(==\)/i }));
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "Test" } });
+    fireEvent.click(screen.getByRole("button", { name: /Run Query/i }));
+
+    expect(await screen.findByText(/Results \(1\)/i)).toBeTruthy();
+    const reservedScrollbarRow = screen.getByLabelText("Horizontal results scrollbar");
+    const mirrorScrollbar = screen.getByTestId("horizontal-results-scrollbar");
+    expect(reservedScrollbarRow.closest("thead")).not.toBeNull();
+    expect(reservedScrollbarRow.closest("table")).not.toBeNull();
+    expect(mirrorScrollbar.closest("table")).toBeNull();
   });
 
   it("does not let an older query overwrite a newly selected collection", async () => {

@@ -1,5 +1,4 @@
 import "./Spreadsheet.css";
-import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../auth/firebaseConfig";
 import { TableSortLabel, Icon, Tooltip } from "@mui/material";
 import {
@@ -412,15 +411,6 @@ SpreadsheetRowContent.displayName = "SpreadsheetRowContent";
 const Spreadsheet: React.FC = () => {
   const navigate = useNavigate();
   const tagColors = useTagColors();
-  // Route Protection: redirect to login if not authenticated
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        navigate("/");
-      }
-    });
-    return () => unsubscribe();
-  }, [navigate]);
   // Sorting state
   const [sortConfig, setSortConfig] = useState<{
     key: string | null;
@@ -997,9 +987,17 @@ const Spreadsheet: React.FC = () => {
                     checkStringContains(row.lastName, candidate)
                   );
                 case "address":
-                  return matchesAnySearchValue((candidate) =>
-                    checkStringContains(row.address, candidate)
-                  );
+                  return matchesAnySearchValue((candidate) => {
+                    const formattedAddress = formatAddressWithQuadrantAndUnit(
+                      row.address,
+                      row.quadrant,
+                      row.address2
+                    );
+                    return checkStringContains(
+                      `${formattedAddress}${row.zipCode ? ` ${row.zipCode}` : ""}`,
+                      candidate
+                    );
+                  });
                 case "phone":
                   return matchesAnySearchValue((candidate) =>
                     checkStringContains(row.phone, candidate)
@@ -1291,7 +1289,7 @@ const Spreadsheet: React.FC = () => {
               onBlur={searchAutocomplete.handleInputBlur}
               onKeyDown={searchAutocomplete.handleInputKeyDown}
               onKeyUp={searchAutocomplete.handleInputKeyUp}
-              placeholder='Search clients (e.g., smith; name:john,jane; address:"main st"; gender:female,male)'
+              placeholder='Search clients (e.g., smith; name:john,jane; address:"123 Main St NE"; gender:female,male)'
               style={{
                 width: "100%",
                 height: "50px",

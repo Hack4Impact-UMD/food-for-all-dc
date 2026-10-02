@@ -28,7 +28,12 @@ describe("Spreadsheet search filter regression guards", () => {
 
   it("shows multi-value examples in the Clients page search placeholder", () => {
     expect(source).toContain(
-      'placeholder=\'Search clients (e.g., smith; name:john,jane; address:"main st"; gender:female,male)\''
+      'placeholder=\'Search clients (e.g., smith; name:john,jane; address:"123 Main St NE"; gender:female,male)\''
     );
+  });
+
+  it("searches the complete displayed client address", () => {
+    expect(source).toContain("formatAddressWithQuadrantAndUnit(");
+    expect(source).toContain('`${formattedAddress}${row.zipCode ? ` ${row.zipCode}` : ""}`');
   });
 });

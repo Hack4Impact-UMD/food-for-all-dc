@@ -5,7 +5,6 @@ import IconButton from "@mui/material/IconButton";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { AppBar, Box, styled, Typography } from "@mui/material";
-import { onAuthStateChanged } from "firebase/auth";
 import { collection, doc, getDoc } from "firebase/firestore";
 import { db } from "../../auth/firebaseConfig";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -196,18 +195,6 @@ const CalendarPage: React.FC = React.memo(() => {
       return event;
     });
   }, [events, clientLookupMap]);
-
-  // Route Protection
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: any) => {
-      if (!user) {
-        navigate("/");
-      }
-    });
-
-    // Cleanup the listener when the component unmounts
-    return () => unsubscribe();
-  }, [navigate]);
 
   useEffect(() => {
     const handleDocumentClick = (event: MouseEvent) => {

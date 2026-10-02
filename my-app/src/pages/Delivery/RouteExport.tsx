@@ -152,6 +152,22 @@ const formatAssignedTime = (time?: string, fallback = "No time assigned"): strin
 const truncateExportText = (value: string | undefined, maxLength: number): string =>
   (value || "").trim().slice(0, maxLength);
 
+export const formatDeliveryExportHeaders = (
+  rows: Array<Record<string, unknown>>
+): Array<Record<string, unknown>> =>
+  rows.map((row) =>
+    Object.fromEntries(
+      Object.entries(row).map(([header, value]) => [
+        header
+          .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toUpperCase(),
+        value,
+      ])
+    )
+  );
+
 const buildDoorDashStreetAddress = (row: RowData): string =>
   formatAddressWithQuadrant(row.address, row.quadrant);
 
@@ -466,7 +482,7 @@ export const exportDeliveries = async (
         return;
       }
 
-      const csv = Papa.unparse(normalizeCsvRows(csvData));
+      const csv = Papa.unparse(normalizeCsvRows(formatDeliveryExportHeaders(csvData)));
       zip.file(group.fileName, csv);
       filesCreated += 1;
     });
@@ -597,7 +613,7 @@ export const exportDoordashDeliveries = async (
         return;
       }
 
-      const csv = Papa.unparse(normalizeCsvRows(csvData));
+      const csv = Papa.unparse(normalizeCsvRows(formatDeliveryExportHeaders(csvData)));
       zip.file(group.fileName, csv);
       filesCreated += 1;
     });
