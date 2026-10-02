@@ -24,8 +24,13 @@
     "react": "^18.3.1",
     "react-datepicker": "^9.1.0",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.30.3",
+    "react-router-dom": "^6.30.6",
     "react-virtuoso": "^4.14.1"
+  },
+  "overrides": {
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "1.14.5"
+    }
   },
   "scripts": {
     "start": "react-scripts start",

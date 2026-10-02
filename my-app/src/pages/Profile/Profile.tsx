@@ -1987,7 +1987,7 @@ const Profile = () => {
               className="field-descriptor"
               sx={{ fontWeight: 700, fontSize: "1rem", mb: "10px" }}
             >
-              DIETARY PREFERENCES
+              PREFERRED FOOD
             </Typography>
             {isEditing ? (
               <CustomTextField
@@ -1999,7 +1999,7 @@ const Profile = () => {
                     : ""
                 }
                 onChange={handleDietaryRestrictionChange}
-                placeholder="Please specify dietary preferences (e.g. kosher, gluten-free)"
+                placeholder="Please specify preferred food (e.g. fresh produce, sliced cheese)."
                 variant="outlined"
                 size="small"
                 multiline
