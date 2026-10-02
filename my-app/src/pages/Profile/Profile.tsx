@@ -1871,7 +1871,7 @@ const Profile = () => {
                     : ""
                 }
                 onChange={handleDietaryRestrictionChange}
-                placeholder="Please specify dietary preferences (e.g. kosher, gluten-free)"
+                placeholder="Please specify preferred food (e.g. fresh produce, sliced cheese)."
                 variant="outlined"
                 size="small"
                 multiline

@@ -67,7 +67,6 @@ describe("buildSummaryReportData HFA delivery metric", () => {
         createDelivery("delivery-4", missedOnlyHfaClient.uid, "Missed"),
         createDelivery("delivery-5", nonHfaClient.uid, "Scheduled"),
       ],
-      firstDeliveriesByClientId: new Map(),
       start: DateTime.fromISO("2026-07-16").startOf("day"),
       end: DateTime.fromISO("2026-08-12").endOf("day"),
     });

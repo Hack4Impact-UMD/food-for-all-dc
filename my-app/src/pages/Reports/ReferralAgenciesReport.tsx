@@ -15,7 +15,6 @@ import {
 } from "../../utils/reportExport";
 import { CsvExportError, CsvRow } from "../../utils/csvExport";
 import {
-  loadFirstDeliveriesByClientIds,
   loadInclusiveReportEvents,
   loadReportClientsByIds,
 } from "./reportDataLoader";
@@ -67,7 +66,7 @@ const ReferralAgenciesReport: React.FC = () => {
           "First Name": client.firstName,
           "Last Name": client.lastName,
           "Referral Date": client.referredDate,
-          "First Delivery Date": client.firstDeliveryDate,
+          "Start Date": client.startDate,
           "Client ID": client.id,
         });
       });
@@ -109,15 +108,11 @@ const ReferralAgenciesReport: React.FC = () => {
 
       const servedEvents = await loadInclusiveReportEvents(start, end);
       const servedClientIds = Array.from(new Set(servedEvents.map((event) => event.clientId)));
-      const [clients, firstDeliveriesByClientId] = await Promise.all([
-        loadReportClientsByIds(servedClientIds),
-        loadFirstDeliveriesByClientIds(servedClientIds),
-      ]);
+      const clients = await loadReportClientsByIds(servedClientIds);
 
       setData(
         buildReferralAgenciesReportData({
           clients,
-          firstDeliveriesByClientId,
           start,
           end,
         })
@@ -281,7 +276,7 @@ const ReferralAgenciesReport: React.FC = () => {
                       Referral Date: {client.referredDate || "—"}
                     </Typography>
                     <Typography sx={{ m: 0 }}>
-                      First Delivery Date: {client.firstDeliveryDate || "—"}
+                      Start Date: {client.startDate || "—"}
                     </Typography>
                   </Box>
                 ))}

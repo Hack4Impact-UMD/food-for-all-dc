@@ -49,7 +49,6 @@ describe("SummaryReport", () => {
     localStorage.setItem("ffaReportDateRangeEnd", "2026-08-12");
 
     mockedLoadInclusiveReportEvents.mockResolvedValue([]);
-    mockedLoadFirstDeliveriesByClientIds.mockResolvedValue(new Map());
     mockedLoadAllReportClients.mockResolvedValue([
       {
         uid: "active-without-delivery",
@@ -68,7 +67,7 @@ describe("SummaryReport", () => {
     fireEvent.click(screen.getByRole("button", { name: "Generate" }));
 
     await waitFor(() => expect(mockedLoadAllReportClients).toHaveBeenCalledTimes(1));
-    expect(mockedLoadFirstDeliveriesByClientIds).toHaveBeenCalledWith([]);
+    expect(mockedLoadFirstDeliveriesByClientIds).not.toHaveBeenCalled();
 
     fireEvent.click(await screen.findByRole("button", { name: "Tags" }));
     const tagsRegion = await screen.findByRole("region", { name: "Tags" });
