@@ -1408,6 +1408,7 @@ const Profile = () => {
               id: selectedCaseWorker.id,
               name: selectedCaseWorker.name,
               organization: selectedCaseWorker.organization,
+              phone: selectedCaseWorker.phone,
             }
           : null, // Use null if no case worker is selected
         activeStatus: persistedActiveStatus,
@@ -2769,6 +2770,7 @@ const Profile = () => {
           id: caseWorker.id,
           name: caseWorker.name,
           organization: caseWorker.organization,
+          phone: caseWorker.phone,
         },
         referredDate: CalendarUtils.toDayPilotString(TimeUtils.today()),
       }));

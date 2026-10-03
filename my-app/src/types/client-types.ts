@@ -86,6 +86,7 @@ export interface ClientProfile {
     id: string;
     name: string;
     organization: string;
+    phone?: string;
   } | null;
   startDate: string;
   endDate: string;
