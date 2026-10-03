@@ -13,6 +13,7 @@ import InfoIcon from "@mui/icons-material/Info";
 import { ClientProfile } from "../../../types";
 import { ClientProfileKey, InputType } from "../types";
 import { CaseWorker } from "../../../types";
+import { formatPhoneNumber } from "../../../utils";
 
 export interface BasicInfoFormProps {
   clientProfile: ClientProfile;
@@ -57,6 +58,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   addressError,
   addressInputRef,
 }) => {
+  const referralToDisplay = selectedCaseWorker ?? clientProfile.referralEntity;
   return (
     <Box
       sx={{
@@ -478,9 +480,9 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
             />
           </>
         ) : (
-          <Typography variant="body1" sx={{ fontWeight: 600 }}>
-            {selectedCaseWorker
-              ? [selectedCaseWorker.name, selectedCaseWorker.organization].filter(Boolean).join(selectedCaseWorker.name && selectedCaseWorker.organization ? ', ' : '')
+          <Typography variant="body1" sx={{ fontWeight: 600, textAlign: "left" }}>
+            {referralToDisplay
+              ? [referralToDisplay.name, referralToDisplay.organization, referralToDisplay.phone && formatPhoneNumber(referralToDisplay.phone)].filter(Boolean).join(', ')
               : "None"}
           </Typography>
         )}
