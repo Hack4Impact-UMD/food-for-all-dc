@@ -58,7 +58,6 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   addressError,
   addressInputRef,
 }) => {
-  const referralToDisplay = selectedCaseWorker ?? clientProfile.referralEntity;
   return (
     <Box
       sx={{
@@ -481,8 +480,8 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           </>
         ) : (
           <Typography variant="body1" sx={{ fontWeight: 600, textAlign: "left" }}>
-            {referralToDisplay
-              ? [referralToDisplay.name, referralToDisplay.organization, referralToDisplay.phone && formatPhoneNumber(referralToDisplay.phone)].filter(Boolean).join(', ')
+            {selectedCaseWorker
+              ? [selectedCaseWorker.name, selectedCaseWorker.organization, selectedCaseWorker.phone && formatPhoneNumber(selectedCaseWorker.phone)].filter(Boolean).join(', ')
               : "None"}
           </Typography>
         )}

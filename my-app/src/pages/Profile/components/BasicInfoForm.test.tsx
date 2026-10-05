@@ -142,15 +142,12 @@ describe("BasicInfoForm referral entity display", () => {
 
   it("displays the selected referral's formatted phone number", () => {
     renderReferralDisplay({ ...options[1], phone: referral.phone });
-    expect(
-      screen.queryByText("Peter Adams, Agency One, (123)-456-7890")
-    ).not.toBeNull();
+    expect(screen.getByText("Peter Adams, Agency One, (123)-456-7890")).toBeTruthy();
   });
 
-  it("displays the saved phone number when no case worker is selected", () => {
+  it("displays None when no case worker is selected", () => {
     renderReferralDisplay(null, referral);
-    expect(
-      screen.queryByText("Peter Adams, Agency One, (123)-456-7890")
-    ).not.toBeNull();
+    expect(screen.getByText("None")).toBeTruthy();
+    expect(screen.queryByText("Peter Adams, Agency One, (123)-456-7890")).toBeNull();
   });
 });
