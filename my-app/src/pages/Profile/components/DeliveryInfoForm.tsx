@@ -103,12 +103,16 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "350px 350px 1fr",
+          gridTemplateColumns: {
+            xs: "1fr",
+            sm: "repeat(2, 1fr)",
+            md: "repeat(3, 1fr)",
+          },
         }}
         className="info-grid"
       >
         {/* Start Date */}
-        <Box sx={{ width: 350 }}>
+        <Box>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             START DATE <span className="required-asterisk">*</span>
           </Typography>
@@ -131,7 +135,7 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         </Box>
 
         {/* End Date */}
-        <Box sx={{ width: 350 }}>
+        <Box>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             END DATE <span className="required-asterisk">*</span>
           </Typography>
