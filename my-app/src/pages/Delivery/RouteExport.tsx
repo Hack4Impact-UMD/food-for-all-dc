@@ -38,7 +38,6 @@ const ROUTE_DIETARY_LABELS: Array<[string, string]> = [
   ["lowSodium", "low sodium"],
   ["lowSugar", "low sugar"],
   ["microwaveOnly", "microwave only"],
-  ["noCookingEquipment", "no cooking equipment"],
   ["softFood", "soft food"],
   ["vegan", "vegan"],
   ["vegetarian", "vegetarian"],

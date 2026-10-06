@@ -339,7 +339,6 @@ const Profile = () => {
         microwaveOnly: false,
         softFood: false,
         lowSodium: false,
-        noCookingEquipment: false,
         heartFriendly: false,
         allergies: false,
         allergiesText: "",
@@ -537,8 +536,6 @@ const Profile = () => {
             microwaveOnly: data.deliveryDetails?.dietaryRestrictions?.microwaveOnly || false,
             softFood: data.deliveryDetails?.dietaryRestrictions?.softFood || false,
             lowSodium: data.deliveryDetails?.dietaryRestrictions?.lowSodium || false,
-            noCookingEquipment:
-              data.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
             heartFriendly: data.deliveryDetails?.dietaryRestrictions?.heartFriendly || false,
             allergies: data.deliveryDetails?.dietaryRestrictions?.allergies || false,
             allergiesText: data.deliveryDetails?.dietaryRestrictions?.allergiesText || "",
@@ -1689,7 +1686,6 @@ const Profile = () => {
         { name: "microwaveOnly", label: "Microwave Only" },
         { name: "softFood", label: "Soft Food" },
         { name: "lowSodium", label: "Low Sodium" },
-        { name: "noCookingEquipment", label: "No Cooking Equipment" },
         { name: "heartFriendly", label: "Heart Friendly" },
       ] as const;
 
@@ -1703,7 +1699,6 @@ const Profile = () => {
           | "microwaveOnly"
           | "softFood"
           | "lowSodium"
-          | "noCookingEquipment"
           | "heartFriendly";
         label: string;
       }
@@ -1717,7 +1712,6 @@ const Profile = () => {
         microwaveOnly: boolean;
         softFood: boolean;
         lowSodium: boolean;
-        noCookingEquipment: boolean;
         heartFriendly: boolean;
         allergies: boolean;
         allergiesText: string;

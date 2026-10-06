@@ -18,7 +18,6 @@ export interface ReportDietaryRestrictions {
   lowSodium?: boolean;
   lowSugar?: boolean;
   microwaveOnly?: boolean;
-  noCookingEquipment?: boolean;
   softFood?: boolean;
   vegan?: boolean;
   vegetarian?: boolean;
@@ -123,7 +122,6 @@ const DIETARY_BOOLEAN_FIELDS: Array<[keyof ReportDietaryRestrictions, string]> =
   ["lowSodium", "Low Sodium"],
   ["lowSugar", "Low Sugar"],
   ["microwaveOnly", "Microwave Only"],
-  ["noCookingEquipment", "No Cooking Equipment"],
   ["softFood", "Soft Food"],
   ["vegan", "Vegan"],
   ["vegetarian", "Vegetarian"],
@@ -166,7 +164,6 @@ export const BASE_SUMMARY_REPORT: SummaryData = {
   "Dietary Restrictions": {
     "Clients with Dietary Restrictions": { value: 0, isFullRow: false },
     "Microwave Only": { value: 0, isFullRow: false },
-    "No Cooking Equipment": { value: 0, isFullRow: false },
     "Soft Food": { value: 0, isFullRow: false },
     Halal: { value: 0, isFullRow: false },
     Vegan: { value: 0, isFullRow: false },

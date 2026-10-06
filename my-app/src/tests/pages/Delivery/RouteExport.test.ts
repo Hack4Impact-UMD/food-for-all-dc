@@ -27,7 +27,6 @@ describe("route spreadsheet export", () => {
           microwaveOnly: false,
           softFood: false,
           lowSodium: false,
-          noCookingEquipment: false,
           heartFriendly: false,
           foodAllergens: [],
           otherText: "",

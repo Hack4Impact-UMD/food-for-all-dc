@@ -2605,7 +2605,6 @@ const DeliverySpreadsheet: React.FC = () => {
                 "lowSodium",
                 "lowSugar",
                 "microwaveOnly",
-                "noCookingEquipment",
                 "softFood",
                 "vegan",
                 "vegetarian",

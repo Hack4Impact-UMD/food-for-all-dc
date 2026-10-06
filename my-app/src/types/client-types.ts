@@ -11,7 +11,6 @@ export interface DietaryRestrictions {
   microwaveOnly: boolean;
   softFood: boolean;
   lowSodium: boolean;
-  noCookingEquipment: boolean;
   heartFriendly: boolean;
   foodAllergens: string[];
   otherText: string;

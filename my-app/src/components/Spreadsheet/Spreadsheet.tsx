@@ -593,8 +593,6 @@ const Spreadsheet: React.FC = () => {
                   lowSugar: client.deliveryDetails?.dietaryRestrictions?.lowSugar || false,
                   microwaveOnly:
                     client.deliveryDetails?.dietaryRestrictions?.microwaveOnly || false,
-                  noCookingEquipment:
-                    client.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
                   otherText: client.deliveryDetails?.dietaryRestrictions?.otherText || "",
                   other: client.deliveryDetails?.dietaryRestrictions?.other || false,
                   softFood: client.deliveryDetails?.dietaryRestrictions?.softFood || false,
@@ -805,7 +803,6 @@ const Spreadsheet: React.FC = () => {
           if (dr.lowSodium) dietary.push("Low Sodium");
           if (dr.lowSugar) dietary.push("Low Sugar");
           if (dr.microwaveOnly) dietary.push("Microwave Only");
-          if (dr.noCookingEquipment) dietary.push("No Cooking Equipment");
           if (dr.softFood) dietary.push("Soft Food");
           if (dr.vegan) dietary.push("Vegan");
           if (dr.vegetarian) dietary.push("Vegetarian");
@@ -1018,7 +1015,6 @@ const Spreadsheet: React.FC = () => {
                     dr.lowSodium ? "low sodium" : "",
                     dr.lowSugar ? "low sugar" : "",
                     dr.microwaveOnly ? "microwave only" : "",
-                    dr.noCookingEquipment ? "no cooking equipment" : "",
                     dr.softFood ? "soft food" : "",
                     dr.vegan ? "vegan" : "",
                     dr.vegetarian ? "vegetarian" : "",

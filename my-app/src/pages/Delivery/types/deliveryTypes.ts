@@ -39,7 +39,7 @@ export interface DeliveryRowData {
       lowSodium: boolean;
       lowSugar: boolean;
       microwaveOnly: boolean;
-      noCookingEquipment: boolean;
+      heartFriendly: boolean;
       other: string[];
       softFood: boolean;
       vegan: boolean;

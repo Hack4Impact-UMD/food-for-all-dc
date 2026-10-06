@@ -4,7 +4,6 @@ const DIETARY_RESTRICTION_LABELS: Array<[string, string]> = [
   ["lowSodium", "Low Sodium"],
   ["lowSugar", "Low Sugar"],
   ["microwaveOnly", "Microwave Only"],
-  ["noCookingEquipment", "No Cooking Equipment"],
   ["softFood", "Soft Food"],
   ["vegan", "Vegan"],
   ["vegetarian", "Vegetarian"],
