@@ -34,7 +34,6 @@ const makeReport = (deliveryCount: number): DriverRouteReport => ({
         microwaveOnly: false,
         softFood: false,
         lowSodium: false,
-        noCookingEquipment: false,
         heartFriendly: false,
         foodAllergens: [],
         otherText: "",

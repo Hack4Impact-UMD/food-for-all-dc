@@ -114,7 +114,6 @@ const mapReportClient = (docSnapshot: QueryDocumentSnapshot): ReportClientRecord
             lowSodium: dietaryRestrictions.lowSodium === true,
             lowSugar: dietaryRestrictions.lowSugar === true,
             microwaveOnly: dietaryRestrictions.microwaveOnly === true,
-            noCookingEquipment: dietaryRestrictions.noCookingEquipment === true,
             softFood: dietaryRestrictions.softFood === true,
             vegan: dietaryRestrictions.vegan === true,
             vegetarian: dietaryRestrictions.vegetarian === true,

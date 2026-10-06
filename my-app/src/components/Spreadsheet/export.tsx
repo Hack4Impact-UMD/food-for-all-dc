@@ -23,7 +23,6 @@ export interface RowData {
       lowSodium: boolean;
       lowSugar: boolean;
       microwaveOnly: boolean;
-      noCookingEquipment: boolean;
       otherText: string;
       other: boolean;
       softFood: boolean;
