@@ -1103,15 +1103,15 @@ const Profile = () => {
   // Restamp a note only when its text was edited. Text with no timestamp (e.g. imported
   // clients) stays unstamped, since saving another field says nothing about when it was written.
   const nextNoteTimestamp = (
-    before: string,
-    current: string,
-    existing: { notes: string; timestamp: Date } | null
+    prevNotes: string,
+    newNotes: string,
+    prevNotesTimestamp: { notes: string; timestamp: Date } | null
   ) => {
     // Compare trimmed versions of notes to avoid whitespace issues
-    if (before.trim() !== current.trim()) {
-      return { notes: current, timestamp: new Date() };
+    if (prevNotes.trim() !== newNotes.trim()) {
+      return { notes: newNotes, timestamp: new Date() };
     }
-    return existing;
+    return prevNotesTimestamp;
   };
 
   // Function to normalize text fields for database storage
