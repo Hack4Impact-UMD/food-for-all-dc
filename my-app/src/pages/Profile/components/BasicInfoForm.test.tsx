@@ -1,7 +1,7 @@
 import React from "react";
 import { describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { CaseWorker } from "../../../types";
+import type { CaseWorker, ClientProfile } from "../../../types";
 import BasicInfoForm, { filterReferralEntityOptions } from "./BasicInfoForm";
 
 const options: CaseWorker[] = [
@@ -33,6 +33,25 @@ const renderAutocomplete = (
   );
 
   return screen.getByRole("combobox") as HTMLInputElement;
+};
+
+const renderReferralDisplay = (
+  selectedCaseWorker: CaseWorker | null = null,
+  referralEntity: ClientProfile["referralEntity"] = null
+) => {
+  render(
+    <BasicInfoForm
+      clientProfile={{ headOfHousehold: "Adult", referralEntity } as any}
+      isEditing={false}
+      errors={{}}
+      renderField={() => null}
+      fieldLabelStyles={{}}
+      selectedCaseWorker={selectedCaseWorker}
+      caseWorkers={options.filter(({ id }) => id !== "edit_list")}
+      setShowCaseWorkerModal={() => undefined}
+      handleCaseWorkerChange={() => undefined}
+    />
+  );
 };
 
 describe("filterReferralEntityOptions", () => {

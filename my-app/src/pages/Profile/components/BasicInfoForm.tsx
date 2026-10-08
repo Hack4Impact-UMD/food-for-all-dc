@@ -13,6 +13,7 @@ import InfoIcon from "@mui/icons-material/Info";
 import { ClientProfile } from "../../../types";
 import { ClientProfileKey, InputType } from "../types";
 import { CaseWorker } from "../../../types";
+import { formatPhoneNumber } from "../../../utils";
 
 export interface BasicInfoFormProps {
   clientProfile: ClientProfile;
@@ -478,9 +479,9 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
             />
           </>
         ) : (
-          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+          <Typography variant="body1" sx={{ fontWeight: 600, textAlign: "left" }}>
             {selectedCaseWorker
-              ? [selectedCaseWorker.name, selectedCaseWorker.organization].filter(Boolean).join(selectedCaseWorker.name && selectedCaseWorker.organization ? ', ' : '')
+              ? [selectedCaseWorker.name, selectedCaseWorker.organization, selectedCaseWorker.phone && formatPhoneNumber(selectedCaseWorker.phone)].filter(Boolean).join(', ')
               : "None"}
           </Typography>
         )}

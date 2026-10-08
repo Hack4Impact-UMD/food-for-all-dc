@@ -97,7 +97,6 @@ const DIETARY_LABELS = [
   ['lowSodium', 'low sodium'],
   ['lowSugar', 'low sugar'],
   ['microwaveOnly', 'microwave only'],
-  ['noCookingEquipment', 'no cooking equipment'],
   ['softFood', 'soft food'],
   ['vegan', 'vegan'],
   ['vegetarian', 'vegetarian'],

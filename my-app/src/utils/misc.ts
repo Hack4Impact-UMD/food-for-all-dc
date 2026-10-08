@@ -13,23 +13,6 @@ export const generateUID = (): string => {
 };
 
 /**
- * Verifies if two notes objects are different
- * @param notes Current notes
- * @param prevNotesTimestamp Previous notes with timestamp
- * @returns The updated notes object with timestamp if needed
- */
-export const checkIfNotesExists = (
-  notes: string,
-  prevNotesTimestamp: { notes: string; timestamp: Date } | null
-): { notes: string; timestamp: Date } | null => {
-  if (!prevNotesTimestamp && notes.trim() !== "") {
-    return { notes, timestamp: new Date() };
-  }
-
-  return prevNotesTimestamp;
-};
-
-/**
  * Delays execution for specified milliseconds
  * @param ms Milliseconds to delay
  * @returns A promise that resolves after the delay

@@ -11,7 +11,6 @@ export interface DietaryRestrictions {
   microwaveOnly: boolean;
   softFood: boolean;
   lowSodium: boolean;
-  noCookingEquipment: boolean;
   heartFriendly: boolean;
   foodAllergens: string[];
   otherText: string;
@@ -86,6 +85,7 @@ export interface ClientProfile {
     id: string;
     name: string;
     organization: string;
+    phone?: string;
   } | null;
   startDate: string;
   endDate: string;
