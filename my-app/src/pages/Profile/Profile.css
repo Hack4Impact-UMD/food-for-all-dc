@@ -317,6 +317,7 @@ dd {
 #timestamp {
   text-align: right;
   font-size: small;
+  color: var(--color-primary)
 }
 
 /* Mobile Responsiveness */
