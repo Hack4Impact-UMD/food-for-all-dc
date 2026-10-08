@@ -1694,7 +1694,7 @@ const Profile = () => {
           })}
 
           {/* Allergies title and text box */}
-          <Box sx={{ width: "100%" }}>
+          <Box sx={{ width: "100%",  gridColumnStart: 1}}>
             <Typography
               className="field-descriptor"
               sx={{ fontWeight: 700, fontSize: "1rem", mb: "10px" }}
@@ -1805,15 +1805,16 @@ const Profile = () => {
 
           {/* Dietary Preferences textarea */}
           {/* Dietary Preferences Subsection Heading */}
-          <Box sx={{ width: "100%", mt: 3 }}>
-            <SectionTitle sx={{ textAlign: "left", width: "100%" }}>
-              Dietary Preferences
-            </SectionTitle>
+          <Box sx={{ width: "100%", mt: 3 , gridColumn: "1 / -1"}}>
+            <Typography className="field-descriptor" sx={fieldLabelStyles}>
+              DIETARY PREFERENCES
+            </Typography>
             <Typography
-              className="field-descriptor"
-              sx={{ fontWeight: 700, fontSize: "1rem", mb: "10px" }}
+              sx={{ fontWeight: 700, fontSize: "0.8rem", mb: "12px", 
+                textAlign: "left", pl: "8px", 
+                color: "var(--color-text-secondary)" }}
             >
-              PREFERRED FOOD
+              Preferred Food
             </Typography>
             {isEditing ? (
               <CustomTextField
