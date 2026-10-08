@@ -394,7 +394,6 @@ const Profile = () => {
   const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [isProcessingDelivery, setIsProcessingDelivery] = useState<boolean>(false);
-  const [prevNotes, setPrevNotes] = useState("");
   const [showSavePopup, setShowSavePopup] = useState(false);
   const [showCaseWorkerModal, setShowCaseWorkerModal] = useState(false);
   const [caseWorkers, setCaseWorkers] = useState<CaseWorker[]>([]);
@@ -619,9 +618,7 @@ const Profile = () => {
             setDynamicFields(profileData.miscellaneousDynamicFields || {});
           }
           setClientProfile(profileData);
-          // Set prevNotes only when the profile is loaded from Firebase
           if (!profileLoaded) {
-            setPrevNotes(profileData.notes || "");
             setProfileLoaded(true);
           }
         }
@@ -637,7 +634,6 @@ const Profile = () => {
       setTags([]);
       setSelectedCaseWorker(null);
       setProfileLoaded(false);
-      setPrevNotes("");
     }
   }, [clientIdParam, allTags, configFields, profileLoaded]);
 
@@ -1104,18 +1100,9 @@ const Profile = () => {
     return newErrors;
   };
 
-  const checkIfNotesExists = (
-    notes: string,
-    prevNotesTimestamp: { notes: string; timestamp: Date } | null
-  ) => {
-    if (!prevNotesTimestamp && notes.trim() !== "") {
-      return { notes, timestamp: new Date() };
-    }
-
-    return prevNotesTimestamp;
-  };
-
-  const checkIfNotesChanged = (
+  // Restamp a note only when its text was edited. Text with no timestamp (e.g. imported
+  // clients) stays unstamped, since saving another field says nothing about when it was written.
+  const nextNoteTimestamp = (
     prevNotes: string,
     newNotes: string,
     prevNotesTimestamp: { notes: string; timestamp: Date } | null
@@ -1267,55 +1254,29 @@ const Profile = () => {
       setWard(fetchedWard);
       // --- Geocoding Optimization End ---
 
-      const currentNotes = clientProfile.notes || ""; // Ensure notes is a string
-      let updatedNotesTimestamp = checkIfNotesExists(
-        currentNotes,
+      // Compare every note against the snapshot taken when editing began. A new profile has
+      // no "before", so any text it starts with is stamped. Without a snapshot, nothing changed.
+      const baseline = isNewProfile ? null : (prevClientProfile ?? clientProfile);
+
+      const updatedNotesTimestamp = nextNoteTimestamp(
+        baseline?.notes || "",
+        clientProfile.notes || "",
         clientProfile.notesTimestamp || null
       );
-      updatedNotesTimestamp = checkIfNotesChanged(
-        prevNotes, // Compare against the notes content *before* this edit session
-        currentNotes,
-        updatedNotesTimestamp
-      );
-
-      // Delivery Instructions Timestamp
-      const prevDeliveryInstructions =
-        prevClientProfile?.deliveryDetails.deliveryInstructions || "";
-      const currentDeliveryInstructions = clientProfile.deliveryDetails.deliveryInstructions || "";
-      let updatedDeliveryInstructionsTimestamp = checkIfNotesExists(
-        currentDeliveryInstructions,
+      const updatedDeliveryInstructionsTimestamp = nextNoteTimestamp(
+        baseline?.deliveryDetails.deliveryInstructions || "",
+        clientProfile.deliveryDetails.deliveryInstructions || "",
         clientProfile.deliveryInstructionsTimestamp || null
       );
-      updatedDeliveryInstructionsTimestamp = checkIfNotesChanged(
-        prevDeliveryInstructions,
-        currentDeliveryInstructions,
-        updatedDeliveryInstructionsTimestamp
-      );
-
-      // Life Challenges Timestamp
-      const prevLifeChallenges = prevClientProfile?.lifeChallenges || "";
-      const currentLifeChallenges = clientProfile.lifeChallenges || "";
-      let updatedLifeChallengesTimestamp = checkIfNotesExists(
-        currentLifeChallenges,
+      const updatedLifeChallengesTimestamp = nextNoteTimestamp(
+        baseline?.lifeChallenges || "",
+        clientProfile.lifeChallenges || "",
         clientProfile.lifeChallengesTimestamp || null
       );
-      updatedLifeChallengesTimestamp = checkIfNotesChanged(
-        prevLifeChallenges,
-        currentLifeChallenges,
-        updatedLifeChallengesTimestamp
-      );
-
-      // Lifestyle Goals Timestamp
-      const prevLifestyleGoals = prevClientProfile?.lifestyleGoals || "";
-      const currentLifestyleGoals = clientProfile.lifestyleGoals || "";
-      let updatedLifestyleGoalsTimestamp = checkIfNotesExists(
-        currentLifestyleGoals,
+      const updatedLifestyleGoalsTimestamp = nextNoteTimestamp(
+        baseline?.lifestyleGoals || "",
+        clientProfile.lifestyleGoals || "",
         clientProfile.lifestyleGoalsTimestamp || null
-      );
-      updatedLifestyleGoalsTimestamp = checkIfNotesChanged(
-        prevLifestyleGoals,
-        currentLifestyleGoals,
-        updatedLifestyleGoalsTimestamp
       );
 
       // Update the clientProfile object with the latest tags state and other calculated fields
@@ -1469,7 +1430,6 @@ const Profile = () => {
         // Update state *before* navigating
         setClientProfile(newProfile); // Update with the full new profile data including UID/createdAt
         setPrevClientProfile(null); // Clear previous state backup
-        setPrevNotes(newProfile.notes || ""); // Update prevNotes with saved notes
         setIsNewProfile(false); // No longer a new profile
         setClientId(newUid); // Set the clientId state for the current view
         setIsSaved(true); // Indicate save was successful
@@ -1534,7 +1494,6 @@ const Profile = () => {
         // Update state *after* successful save for existing profile
         setClientProfile(updatedProfile); // Update with latest data
         setPrevClientProfile(null); // Clear previous state backup
-        setPrevNotes(updatedProfile.notes || ""); // Update prevNotes
         setIsSaved(true); // Indicate save was successful
         setErrors({}); // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
