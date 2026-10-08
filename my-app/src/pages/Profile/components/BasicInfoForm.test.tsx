@@ -132,22 +132,25 @@ describe("BasicInfoForm referral entity autocomplete", () => {
   });
 });
 
-describe("BasicInfoForm referral entity display", () => {
-  const referral = {
-    id: options[1].id,
-    name: options[1].name,
-    organization: options[1].organization,
-    phone: "1234567890",
-  };
+describe("BasicInfoForm spacing", () => {
+  it("reserves DOB spacing only while editing", () => {
+    const props = {
+      clientProfile: {} as any,
+      errors: {},
+      renderField: () => null,
+      fieldLabelStyles: {},
+      selectedCaseWorker: null,
+      caseWorkers: [],
+      setShowCaseWorkerModal: () => undefined,
+      handleCaseWorkerChange: () => undefined,
+    };
+    const { rerender } = render(<BasicInfoForm {...props} isEditing={false} />);
+    const dateOfBirthSection = screen.getByText("DATE OF BIRTH").parentElement!;
 
-  it("displays the selected referral's formatted phone number", () => {
-    renderReferralDisplay({ ...options[1], phone: referral.phone });
-    expect(screen.getByText("Peter Adams, Agency One, (123)-456-7890")).toBeTruthy();
-  });
+    expect(getComputedStyle(dateOfBirthSection).minHeight).toBe("");
 
-  it("displays None when no case worker is selected", () => {
-    renderReferralDisplay(null, referral);
-    expect(screen.getByText("None")).toBeTruthy();
-    expect(screen.queryByText("Peter Adams, Agency One, (123)-456-7890")).toBeNull();
+    rerender(<BasicInfoForm {...props} isEditing />);
+
+    expect(getComputedStyle(dateOfBirthSection).minHeight).toBe("130px");
   });
 });

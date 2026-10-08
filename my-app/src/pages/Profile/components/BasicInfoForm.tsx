@@ -78,7 +78,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           FIRST NAME <span className="required-asterisk">*</span>
         </Typography>
         {renderField("firstName", "text")}{" "}
-        <Box sx={{ minHeight: "24px" }}> {/* Fixed height error container */}</Box>
+        {isEditing && <Box sx={{ minHeight: "24px" }} />}
       </Box>
       {/* Last Name */}
       <Box>
@@ -88,12 +88,12 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         {renderField("lastName", "text")}
       </Box>{" "}
       {/* Date of Birth */}{" "}
-      <Box sx={{ minHeight: "130px" }}>
+      <Box sx={isEditing ? { minHeight: "130px" } : undefined}>
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           DATE OF BIRTH
         </Typography>
         {renderField("dob", "date")}
-        <Box sx={{ minHeight: "24px" }}></Box>
+        {isEditing && <Box sx={{ minHeight: "24px" }} />}
       </Box>
       {/* Address 1 */}
       <Box>
@@ -101,7 +101,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           ADDRESS <span className="required-asterisk">*</span>
         </Typography>
         {renderField("address", "text", addressInputRef)}{" "}
-        <Box sx={{ minHeight: "24px" }}> {/* Fixed height error container */}</Box>
+        {isEditing && <Box sx={{ minHeight: "24px" }} />}
       </Box>
       {/* Address 2 */}
       <Box>
@@ -308,7 +308,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
             {clientProfile.ethnicity || "N/A"}
           </Typography>
         )}
-        <Box sx={{ minHeight: "24px" }}></Box>
+        {isEditing && <Box sx={{ minHeight: "24px" }} />}
       </Box>
       {/* Language */}
       <Box>
@@ -322,7 +322,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
             {clientProfile.language || "N/A"}
           </Typography>
         )}
-        <Box sx={{ minHeight: "24px" }}></Box>
+        {isEditing && <Box sx={{ minHeight: "24px" }} />}
       </Box>
       {/* Adults */}
       <Box>
