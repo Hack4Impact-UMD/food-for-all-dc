@@ -112,3 +112,26 @@ describe("BasicInfoForm referral entity autocomplete", () => {
     expect(handleCaseWorkerChange).not.toHaveBeenCalled();
   });
 });
+
+describe("BasicInfoForm spacing", () => {
+  it("reserves DOB spacing only while editing", () => {
+    const props = {
+      clientProfile: {} as any,
+      errors: {},
+      renderField: () => null,
+      fieldLabelStyles: {},
+      selectedCaseWorker: null,
+      caseWorkers: [],
+      setShowCaseWorkerModal: () => undefined,
+      handleCaseWorkerChange: () => undefined,
+    };
+    const { rerender } = render(<BasicInfoForm {...props} isEditing={false} />);
+    const dateOfBirthSection = screen.getByText("DATE OF BIRTH").parentElement!;
+
+    expect(getComputedStyle(dateOfBirthSection).minHeight).toBe("");
+
+    rerender(<BasicInfoForm {...props} isEditing />);
+
+    expect(getComputedStyle(dateOfBirthSection).minHeight).toBe("130px");
+  });
+});
