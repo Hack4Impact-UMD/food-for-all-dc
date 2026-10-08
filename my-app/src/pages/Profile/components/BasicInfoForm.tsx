@@ -376,7 +376,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         )}
       </Box>
       {/* Referral Entity */}
-      <Box>
+      <Box sx={{ gridColumn: { md: "span 2" } }}>
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           REFERRAL ENTITY <span className="required-asterisk">*</span>
         </Typography>
