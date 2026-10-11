@@ -197,21 +197,19 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
             LIFE CHALLENGES
           </Typography>
           {isEditing ? (
-            <>
-              <Box sx={{ minHeight: 120, width: "100%" }}>
-                {renderField("lifeChallenges", "textarea")}
-              </Box>
-              {clientProfile.lifeChallenges &&
-                clientProfile.lifeChallenges?.trim() !== "" &&
-                lifeChallengesLastEdited && (
-                  <span id="timestamp">Last edited: {lifeChallengesLastEdited}</span>
-                )}
-            </>
+            <Box sx={{ minHeight: 120, width: "100%" }}>
+              {renderField("lifeChallenges", "textarea")}
+            </Box>
           ) : (
             <Typography data-testid="life-challenges-text" sx={narrativeTextSx}>
               {clientProfile.lifeChallenges ? String(clientProfile.lifeChallenges) : "N/A"}
             </Typography>
           )}
+          {clientProfile.lifeChallenges &&
+            clientProfile.lifeChallenges.trim() !== "" &&
+            lifeChallengesLastEdited && (
+              <span id="timestamp">Last edited: {lifeChallengesLastEdited}</span>
+            )}
         </Box>
         <Box>
           <Typography
@@ -227,21 +225,19 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
             LIFESTYLE GOALS
           </Typography>
           {isEditing ? (
-            <>
-              <Box sx={{ minHeight: 120, width: "100%" }}>
-                {renderField("lifestyleGoals", "textarea")}
-              </Box>
-              {clientProfile.lifestyleGoals &&
-                clientProfile.lifestyleGoals?.trim() !== "" &&
-                lifestyleGoalsLastEdited && (
-                  <span id="timestamp">Last edited: {lifestyleGoalsLastEdited}</span>
-                )}
-            </>
+            <Box sx={{ minHeight: 120, width: "100%" }}>
+              {renderField("lifestyleGoals", "textarea")}
+            </Box>
           ) : (
             <Typography data-testid="lifestyle-goals-text" sx={narrativeTextSx}>
               {clientProfile.lifestyleGoals ? String(clientProfile.lifestyleGoals) : "N/A"}
             </Typography>
           )}
+          {clientProfile.lifestyleGoals &&
+            clientProfile.lifestyleGoals.trim() !== "" &&
+            lifestyleGoalsLastEdited && (
+              <span id="timestamp">Last edited: {lifestyleGoalsLastEdited}</span>
+            )}
         </Box>
         {/* Config fields */}
         {configFields.length > 0 &&

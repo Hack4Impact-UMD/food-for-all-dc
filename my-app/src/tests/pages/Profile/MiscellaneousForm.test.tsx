@@ -6,11 +6,15 @@ jest.mock("../../../pages/Profile/components/TefapFillDialog", () => () => null)
 
 describe("MiscellaneousForm narrative text", () => {
   it("keeps Life Challenges and Lifestyle Goals readable without splitting words", () => {
+    const challengesTimestamp = new Date("2025-01-02T15:04:05Z");
+    const goalsTimestamp = new Date("2025-02-03T16:05:06Z");
     render(
       <MiscellaneousForm
         clientProfile={{
           lifeChallenges: "Hello from Life Challenges",
+          lifeChallengesTimestamp: { notes: "Hello from Life Challenges", timestamp: challengesTimestamp },
           lifestyleGoals: "Hello from Lifestyle Goals",
+          lifestyleGoalsTimestamp: { notes: "Hello from Lifestyle Goals", timestamp: goalsTimestamp },
         }}
         isEditing={false}
         renderField={jest.fn()}
@@ -32,5 +36,7 @@ describe("MiscellaneousForm narrative text", () => {
         expect(style.textAlign).toBe("justify");
       }
     );
+    expect(screen.getByText(`Last edited: ${challengesTimestamp.toLocaleString()}`)).toBeTruthy();
+    expect(screen.getByText(`Last edited: ${goalsTimestamp.toLocaleString()}`)).toBeTruthy();
   });
 });
