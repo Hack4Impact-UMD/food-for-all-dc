@@ -183,7 +183,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
             </Typography>
           )}
         </Box>
-        <Box>
+        <Box sx={{ alignSelf: "stretch", display: "flex", flexDirection: "column" }}>
           <Typography
             className="field-descriptor"
             sx={{
@@ -197,23 +197,23 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
             LIFE CHALLENGES
           </Typography>
           {isEditing ? (
-            <>
-              <Box sx={{ minHeight: 120, width: "100%" }}>
-                {renderField("lifeChallenges", "textarea")}
-              </Box>
-              {clientProfile.lifeChallenges &&
-                clientProfile.lifeChallenges?.trim() !== "" &&
-                lifeChallengesLastEdited && (
-                  <span id="timestamp">Last edited: {lifeChallengesLastEdited}</span>
-                )}
-            </>
+            <Box sx={{ minHeight: 120, width: "100%" }}>
+              {renderField("lifeChallenges", "textarea")}
+            </Box>
           ) : (
             <Typography data-testid="life-challenges-text" sx={narrativeTextSx}>
               {clientProfile.lifeChallenges ? String(clientProfile.lifeChallenges) : "N/A"}
             </Typography>
           )}
+          {clientProfile.lifeChallenges &&
+            clientProfile.lifeChallenges.trim() !== "" &&
+            lifeChallengesLastEdited && (
+              <span id="timestamp" style={{ alignSelf: "center", marginTop: "auto" }}>
+                Last edited: {lifeChallengesLastEdited}
+              </span>
+            )}
         </Box>
-        <Box>
+        <Box sx={{ alignSelf: "stretch", display: "flex", flexDirection: "column" }}>
           <Typography
             className="field-descriptor"
             sx={{
@@ -227,21 +227,21 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
             LIFESTYLE GOALS
           </Typography>
           {isEditing ? (
-            <>
-              <Box sx={{ minHeight: 120, width: "100%" }}>
-                {renderField("lifestyleGoals", "textarea")}
-              </Box>
-              {clientProfile.lifestyleGoals &&
-                clientProfile.lifestyleGoals?.trim() !== "" &&
-                lifestyleGoalsLastEdited && (
-                  <span id="timestamp">Last edited: {lifestyleGoalsLastEdited}</span>
-                )}
-            </>
+            <Box sx={{ minHeight: 120, width: "100%" }}>
+              {renderField("lifestyleGoals", "textarea")}
+            </Box>
           ) : (
             <Typography data-testid="lifestyle-goals-text" sx={narrativeTextSx}>
               {clientProfile.lifestyleGoals ? String(clientProfile.lifestyleGoals) : "N/A"}
             </Typography>
           )}
+          {clientProfile.lifestyleGoals &&
+            clientProfile.lifestyleGoals.trim() !== "" &&
+            lifestyleGoalsLastEdited && (
+              <span id="timestamp" style={{ alignSelf: "center", marginTop: "auto" }}>
+                Last edited: {lifestyleGoalsLastEdited}
+              </span>
+            )}
         </Box>
         {/* Config fields */}
         {configFields.length > 0 &&
