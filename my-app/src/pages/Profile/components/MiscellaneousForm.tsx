@@ -183,7 +183,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
             </Typography>
           )}
         </Box>
-        <Box>
+        <Box sx={{ alignSelf: "stretch", display: "flex", flexDirection: "column" }}>
           <Typography
             className="field-descriptor"
             sx={{
@@ -208,10 +208,12 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           {clientProfile.lifeChallenges &&
             clientProfile.lifeChallenges.trim() !== "" &&
             lifeChallengesLastEdited && (
-              <span id="timestamp">Last edited: {lifeChallengesLastEdited}</span>
+              <span id="timestamp" style={{ alignSelf: "center", marginTop: "auto" }}>
+                Last edited: {lifeChallengesLastEdited}
+              </span>
             )}
         </Box>
-        <Box>
+        <Box sx={{ alignSelf: "stretch", display: "flex", flexDirection: "column" }}>
           <Typography
             className="field-descriptor"
             sx={{
@@ -236,7 +238,9 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           {clientProfile.lifestyleGoals &&
             clientProfile.lifestyleGoals.trim() !== "" &&
             lifestyleGoalsLastEdited && (
-              <span id="timestamp">Last edited: {lifestyleGoalsLastEdited}</span>
+              <span id="timestamp" style={{ alignSelf: "center", marginTop: "auto" }}>
+                Last edited: {lifestyleGoalsLastEdited}
+              </span>
             )}
         </Box>
         {/* Config fields */}
