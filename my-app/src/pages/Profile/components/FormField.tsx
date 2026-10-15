@@ -122,7 +122,7 @@ const CustomTextField = styled(TextField)({
     wordWrap: "break-word",
     overflowWrap: "break-word",
     wordBreak: "break-word",
-    resize: "vertical !important",
+    resize: "none !important",
     "&:focus": {
       border: "2px solid var(--color-primary)",
       outline: "none",
@@ -780,7 +780,7 @@ const FormField = (props: FormFieldProps) => {
           </Box>
         );
       case "textarea":
-        // All textareas use the same size and style
+        // Starts at the same compact height fields have always had, then grows to fit the entered text
         return (
           <CustomTextField
             name={fieldPath}
@@ -788,10 +788,9 @@ const FormField = (props: FormFieldProps) => {
             onChange={handleChange}
             multiline
             fullWidth
-            minRows={4}
-            maxRows={4}
+            minRows={1}
             inputProps={{ minLength: minLengthTextarea }}
-            sx={{ minHeight: 120, width: "100%" }}
+            sx={{ width: "100%" }}
             style={{ width: "100%" }}
             disabled={fieldPath === "ward"}
           />
