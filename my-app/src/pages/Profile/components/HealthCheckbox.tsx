@@ -54,11 +54,6 @@ const HealthCheckbox: React.FC<HealthCheckboxProps> = ({
   // Only change color in read-only mode, keep default style
   const checkboxProps = !isEditing
     ? {
-        sx: {
-          "&.MuiCheckbox-root .MuiSvgIcon-root": { color: "#B6E5D8 !important" },
-          "&.Mui-checked .MuiSvgIcon-root": { color: "#B6E5D8 !important" },
-          "& .MuiSvgIcon-root": { color: "#B6E5D8 !important" },
-        },
         disabled: true,
       }
     : {
