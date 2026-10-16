@@ -195,7 +195,16 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           {renderField("deliveryDetails.deliveryInstructions", "textarea")}
           {clientProfile.deliveryDetails?.deliveryInstructions?.trim() !== "" &&
             deliveryInstructionsLastEdited && (
-              <p id="timestamp">Last edited: {deliveryInstructionsLastEdited}</p>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "var(--color-primary)",
+                  textAlign: "right",
+                  fontSize: "small",
+                }}
+              >
+                Last edited: {deliveryInstructionsLastEdited}
+              </Typography>
             )}
         </Box>
 
@@ -212,7 +221,16 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           </Typography>
           {renderField("notes", "textarea")}
           {clientProfile.notes?.trim() !== "" && notesLastEdited && (
-            <p id="timestamp">Last edited: {notesLastEdited}</p>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "var(--color-primary)",
+                textAlign: "right",
+                fontSize: "small",
+              }}
+            >
+              Last edited: {notesLastEdited}
+            </Typography>
           )}
         </Box>
       </Box>
