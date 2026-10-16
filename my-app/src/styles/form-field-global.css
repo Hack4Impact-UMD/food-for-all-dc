@@ -148,23 +148,31 @@ textarea.error,
   }
 }
 
-/* Uniform height for all form fields */
-.MuiTextField-root .MuiInputBase-root,
-.MuiOutlinedInput-root,
-.MuiFormControl-root .MuiInputBase-root,
+/* Uniform height for all form fields (multiline fields are excluded so they can grow) */
+.MuiTextField-root .MuiInputBase-root:not(.MuiInputBase-multiline),
+.MuiOutlinedInput-root:not(.MuiInputBase-multiline),
+.MuiFormControl-root .MuiInputBase-root:not(.MuiInputBase-multiline),
 .MuiSelect-root,
 input:not([type="checkbox"]):not([type="radio"]),
 select,
-textarea {
+textarea:not(.MuiInputBase-inputMultiline) {
   min-height: 56px !important;
   height: 56px !important;
   box-sizing: border-box !important;
 }
 
-/* Ensure multiline text areas can expand but start at proper height */
+/* Ensure multiline text areas and their container can expand to fit content */
+.MuiInputBase-root.MuiInputBase-multiline {
+  height: auto !important;
+  min-height: 56px !important;
+}
+
+/* No !important on height: MUI sets the grown height as an inline style on this
+   element as the user types, and !important here would override that back down
+   to the intrinsic default, trapping long content behind an internal scrollbar. */
 .MuiInputBase-inputMultiline {
   min-height: 56px !important;
-  height: auto !important;
+  height: auto;
 }
 
 /* Make sure date fields have the same height */
@@ -296,19 +304,19 @@ input[type="date"].error {
   align-items: center !important;
 }
 
-/* Global override for ALL form components to ensure uniform height */
+/* Global override for ALL form components to ensure uniform height (multiline fields excluded so they can grow) */
 .MuiTextField-root,
 .MuiFormControl-root,
 .MuiOutlinedInput-root,
 .MuiFilledInput-root,
 .MuiInput-root {
-  & .MuiInputBase-root {
+  & .MuiInputBase-root:not(.MuiInputBase-multiline) {
     min-height: 56px !important;
     height: 56px !important;
     box-sizing: border-box !important;
   }
 
-  & .MuiInputBase-input {
+  & .MuiInputBase-input:not(.MuiInputBase-inputMultiline) {
     padding: 16px 14px !important;
     box-sizing: border-box !important;
   }
