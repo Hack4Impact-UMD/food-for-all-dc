@@ -32,6 +32,12 @@ const fieldStyles = {
   marginTop: "0px",
 };
 
+const lastEditedSx = {
+  color: "var(--color-primary)",
+  textAlign: "right",
+  fontSize: "small",
+} as const;
+
 const CustomSelect = styled(Select)({
   // Target the outlined border
   "& .MuiOutlinedInput-root": {
@@ -195,7 +201,9 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           {renderField("deliveryDetails.deliveryInstructions", "textarea")}
           {clientProfile.deliveryDetails?.deliveryInstructions?.trim() !== "" &&
             deliveryInstructionsLastEdited && (
-              <p id="timestamp">Last edited: {deliveryInstructionsLastEdited}</p>
+              <Typography variant="body2" sx={lastEditedSx}>
+                Last edited: {deliveryInstructionsLastEdited}
+              </Typography>
             )}
         </Box>
 
@@ -212,7 +220,9 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           </Typography>
           {renderField("notes", "textarea")}
           {clientProfile.notes?.trim() !== "" && notesLastEdited && (
-            <p id="timestamp">Last edited: {notesLastEdited}</p>
+            <Typography variant="body2" sx={lastEditedSx}>
+              Last edited: {notesLastEdited}
+            </Typography>
           )}
         </Box>
       </Box>
