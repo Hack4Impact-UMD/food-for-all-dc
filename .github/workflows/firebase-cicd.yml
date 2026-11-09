@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   ci:
     name: CI Checks
@@ -16,7 +19,7 @@ jobs:
       run:
         working-directory: my-app
     env:
-      # Use deterministic placeholders so PR checks do not depend on production secrets.
+      # PR checks use placeholders rather than production credentials.
       REACT_APP_FIREBASE_API_KEY: ci-placeholder
       REACT_APP_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
       REACT_APP_FIREBASE_PROJECT_ID: ci-placeholder
@@ -26,6 +29,8 @@ jobs:
       REACT_APP_FIREBASE_MEASUREMENT_ID: G-CI00000000
       REACT_APP_GOOGLE_MAPS_API_KEY: ci-placeholder
       REACT_APP_DC_WARD_API_KEY: ""
+      REACT_APP_USE_EMULATORS: "false"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,8 +74,13 @@ jobs:
       - name: Run unit tests
         run: CI=true npm run test:ci
 
-      - name: Compile Python functions
-        run: python -m py_compile functions-python/main.py functions-python/clustering.py
+      - name: Compile Python functions and active-status service
+        run: |
+          python -m py_compile \
+            functions-python/main.py \
+            functions-python/clustering.py \
+            ../cloudrun-etl/main.py \
+            ../cloudrun-etl/update_active_status.py
 
       - name: Run Python unit tests
         run: python -m unittest discover -s functions-python -p 'test_*.py'
@@ -78,35 +88,58 @@ jobs:
       - name: Run ETL address unit tests
         run: python -m unittest discover -s ../ETL -p 'test_address*.py'
 
+      - name: Check Cloud Run deployment script syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          $scriptPath = Join-Path $PWD "../cloudrun-etl/services/deploy-cloudrun-services.ps1"
+          $null = [System.Management.Automation.Language.Parser]::ParseFile(
+            $scriptPath,
+            [ref]$tokens,
+            [ref]$parseErrors
+          )
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Host $_.Message }
+            throw "Cloud Run deployment script has syntax errors."
+          }
+
       - name: Build frontend
         run: CI=false npm run build
 
   deploy:
-    name: Deploy to Firebase Production
+    name: Deploy to FFA Production
     runs-on: ubuntu-latest
     needs: ci
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
+
     permissions:
       contents: read
       id-token: write
+
     concurrency:
       group: firebase-prod
-      cancel-in-progress: true
+      cancel-in-progress: false
+
     defaults:
       run:
         working-directory: my-app
+
     env:
-      FIREBASE_PROJECT_ID: food-for-all-dc-caf23
-      REACT_APP_FIREBASE_API_KEY: ${{ secrets.REACT_APP_FIREBASE_API_KEY }}
-      REACT_APP_FIREBASE_AUTH_DOMAIN: ${{ secrets.REACT_APP_FIREBASE_AUTH_DOMAIN }}
-      REACT_APP_FIREBASE_PROJECT_ID: ${{ secrets.REACT_APP_FIREBASE_PROJECT_ID }}
-      REACT_APP_FIREBASE_STORAGE_BUCKET: ${{ secrets.REACT_APP_FIREBASE_STORAGE_BUCKET }}
-      REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}
-      REACT_APP_FIREBASE_APP_ID: ${{ secrets.REACT_APP_FIREBASE_APP_ID }}
-      REACT_APP_FIREBASE_MEASUREMENT_ID: ${{ secrets.REACT_APP_FIREBASE_MEASUREMENT_ID }}
-      REACT_APP_GOOGLE_MAPS_API_KEY: ${{ secrets.REACT_APP_GOOGLE_MAPS_API_KEY }}
-      REACT_APP_DC_WARD_API_KEY: ${{ secrets.REACT_APP_DC_WARD_API_KEY }}
+      FIREBASE_PROJECT_ID: food-for-all-dc-ffa
+      FUNCTIONS_DISCOVERY_TIMEOUT: "60"
+      REACT_APP_FIREBASE_API_KEY: ${{ secrets.FFA_FIREBASE_API_KEY }}
+      REACT_APP_FIREBASE_AUTH_DOMAIN: food-for-all-dc-ffa.firebaseapp.com
+      REACT_APP_FIREBASE_PROJECT_ID: food-for-all-dc-ffa
+      REACT_APP_FIREBASE_STORAGE_BUCKET: food-for-all-dc-ffa.firebasestorage.app
+      REACT_APP_FIREBASE_MESSAGING_SENDER_ID: "490155753803"
+      REACT_APP_FIREBASE_APP_ID: "1:490155753803:web:1f5dcad449fb0d4bcb28ce"
+      REACT_APP_FIREBASE_MEASUREMENT_ID: ""
+      REACT_APP_GOOGLE_MAPS_API_KEY: ${{ secrets.FFA_GOOGLE_MAPS_API_KEY }}
+      REACT_APP_DC_WARD_API_KEY: ""
+      REACT_APP_USE_EMULATORS: "false"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -125,11 +158,18 @@ jobs:
           cache: pip
           cache-dependency-path: my-app/functions-python/requirements.txt
 
-      - name: Authenticate to Google Cloud via OIDC
-        uses: google-github-actions/auth@v3
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - name: Validate deployment configuration
+        env:
+          FFA_WIF_PROVIDER: ${{ secrets.FFA_GCP_WIF_PROVIDER }}
+          FFA_DEPLOY_ACCOUNT: ${{ secrets.FFA_GCP_DEPLOY_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          for name in REACT_APP_FIREBASE_API_KEY REACT_APP_GOOGLE_MAPS_API_KEY FFA_WIF_PROVIDER FFA_DEPLOY_ACCOUNT; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing configuration: $name"
+              exit 1
+            fi
+          done
 
       - name: Install frontend dependencies
         run: npm ci
@@ -143,15 +183,39 @@ jobs:
           source functions-python/venv/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -r functions-python/requirements.txt
+          python -m pip check
 
       - name: Install Firebase CLI
-        run: npm install -g firebase-tools
+        run: npm install -g firebase-tools@15.35.0
 
-      # Rules and indexes go first so the bucket accepts the new uploads, and so
-      # Firestore has started building the composite indexes, before Hosting
-      # serves code that depends on either. Index builds finish asynchronously.
-      - name: Deploy Firestore indexes and Storage rules
-        run: firebase deploy --project "$FIREBASE_PROJECT_ID" --only firestore:indexes,storage --non-interactive
+      - name: Authenticate to Google Cloud via OIDC
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: food-for-all-dc-ffa
+          workload_identity_provider: ${{ secrets.FFA_GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.FFA_GCP_DEPLOY_SERVICE_ACCOUNT }}
 
-      - name: Deploy Hosting and Functions
-        run: firebase deploy --project "$FIREBASE_PROJECT_ID" --only hosting,functions --non-interactive
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Apply Storage bucket CORS
+        run: gcloud storage buckets update gs://food-for-all-dc-ffa.firebasestorage.app --cors-file=storage-cors.json --project=food-for-all-dc-ffa
+
+      # Index builds finish asynchronously.
+      - name: Deploy Firestore rules, indexes, and Storage rules
+        run: firebase deploy --project "$FIREBASE_PROJECT_ID" --only "firestore:rules,firestore:indexes,storage" --non-interactive
+
+      - name: Deploy Functions
+        run: firebase deploy --project "$FIREBASE_PROJECT_ID" --only functions --non-interactive
+
+      # Updates services without invoking them or changing Scheduler jobs.
+      - name: Deploy standalone Cloud Run services
+        shell: pwsh
+        run: |
+          & ../cloudrun-etl/services/deploy-cloudrun-services.ps1 `
+            -ProjectId food-for-all-dc-ffa `
+            -ReportToEmail jamiebrs@gmail.com `
+            -SendGridSecretVersion "2"
+
+      - name: Deploy Hosting
+        run: firebase deploy --project "$FIREBASE_PROJECT_ID" --only hosting --non-interactive

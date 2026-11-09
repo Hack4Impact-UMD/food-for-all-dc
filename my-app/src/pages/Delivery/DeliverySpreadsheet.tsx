@@ -1795,7 +1795,7 @@ const DeliverySpreadsheet: React.FC = () => {
         const geocodeGroups = Array.from(geocodeGroupsByAddress.values());
         const addressesToFetch = geocodeGroups.map((group) => group.address);
         const geocodeResponse = await fetch(
-          testing ? "" : "https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app",
+          testing ? "" : "https://geocode-addresses-endpoint-mo6r4hjeka-uc.a.run.app",
           {
             method: "POST",
             headers: {
@@ -1909,7 +1909,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
       // 6. Call Clustering
       const clusterResponse = await fetch(
-        testing ? "" : "https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app",
+        testing ? "" : "https://cluster-deliveries-k-means-mo6r4hjeka-uc.a.run.app",
         {
           method: "POST",
           headers: {

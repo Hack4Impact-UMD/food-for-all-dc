@@ -141,3 +141,5 @@ tmp/
 
 # Jupyter Notebooks
 .ipynb_checkpoints/
+
+gha-creds-*.json

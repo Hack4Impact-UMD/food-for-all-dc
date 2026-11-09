@@ -10,7 +10,9 @@
         "firebase-debug.log",
         "firebase-debug.*.log",
         "*.local",
-        "venv"
+        "venv",
+        "gha-creds-*.json",
+        "**/gha-creds-*.json"
       ],
       "timeout": "30s",
       "memory": "1GB"
@@ -21,7 +23,9 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "gha-creds-*.json",
+      "**/gha-creds-*.json"
     ],
     "headers": [
       {
@@ -84,6 +88,7 @@
     ]
   },
   "firestore": {
+    "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
   "storage": {

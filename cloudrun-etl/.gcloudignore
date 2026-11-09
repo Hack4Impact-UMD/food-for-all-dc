@@ -1,0 +1,11 @@
+.gcloudignore
+gha-creds-*.json
+**/gha-creds-*.json
+.git
+node_modules/
+venv/
+.venv/
+env/
+ENV/
+.env/
+__pycache__/
