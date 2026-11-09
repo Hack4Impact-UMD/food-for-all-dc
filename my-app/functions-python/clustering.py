@@ -25,6 +25,8 @@ HOSTED_ORIGINS = {
     "https://app.foodforalldc.org",
     "https://food-for-all-dc-caf23.web.app",
     "https://food-for-all-dc-caf23.firebaseapp.com",
+    "https://food-for-all-dc-ffa.web.app",
+    "https://food-for-all-dc-ffa.firebaseapp.com",
 }
 LOCAL_ORIGIN_PATTERN = re.compile(r"^http://(?:localhost|127\.0\.0\.1):\d+$")
 
@@ -68,7 +70,7 @@ class FieldError(BaseModel):
 # Convert a list of addresses to (lat, lon) using Google Maps Geocoding API.
 def geocode_addresses(addresses: List[str]) -> List[Tuple[float, float]]:
     client = secretmanager.SecretManagerServiceClient()
-    project_id = "251910218620"
+    project_id = firebase_admin.get_app().project_id
     secret_id = "MAPS_API_KEY"
     version = "latest"
     try:
@@ -160,7 +162,7 @@ def _require_authenticated_request(req: https_fn.Request, headers: dict) -> Opti
     return None
 
 
-@https_fn.on_request(region="us-central1", memory=512, timeout_sec=300)
+@https_fn.on_request(region="us-central1", memory=512, timeout_sec=300, invoker="public")
 def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
     headers = _cors_headers(req)
 
@@ -234,7 +236,7 @@ def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
         )
 
 
-@https_fn.on_request(region="us-central1", memory=512, timeout_sec=300)
+@https_fn.on_request(region="us-central1", memory=512, timeout_sec=300, invoker="public")
 def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
     headers = _cors_headers(req)
 

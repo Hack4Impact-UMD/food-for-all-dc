@@ -19,7 +19,7 @@ export const firebaseConfig: FirebaseOptions = {
   storageBucket: getRequiredEnv("REACT_APP_FIREBASE_STORAGE_BUCKET"),
   messagingSenderId: getRequiredEnv("REACT_APP_FIREBASE_MESSAGING_SENDER_ID"),
   appId: getRequiredEnv("REACT_APP_FIREBASE_APP_ID"),
-  measurementId: getRequiredEnv("REACT_APP_FIREBASE_MEASUREMENT_ID"),
+  measurementId: getOptionalEnv("REACT_APP_FIREBASE_MEASUREMENT_ID"),
 };
 
 export const googleMapsApiKey = getRequiredEnv("REACT_APP_GOOGLE_MAPS_API_KEY");

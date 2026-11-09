@@ -1,8 +1,25 @@
 param(
-  [ValidateSet('active-status-etl', 'admin-notes-email', 'check-remaining-deliveries', 'tefap-email', 'route-exports', 'all')]
+  [ValidateSet(
+    'active-status-etl',
+    'admin-notes-email',
+    'check-remaining-deliveries',
+    'tefap-email',
+    'route-exports',
+    'all'
+  )]
   [string]$Service = 'all',
-  [string]$ProjectId = 'food-for-all-dc-caf23',
-  [string]$Region = 'us-central1'
+
+  [ValidateSet('food-for-all-dc-ffa')]
+  [string]$ProjectId = 'food-for-all-dc-ffa',
+
+  [string]$Region = 'us-central1',
+
+  [string]$FromEmail = 'info@foodforalldc.org',
+
+  # Keep reports directed to Jamie during migration testing.
+  [string]$ReportToEmail = 'jamiebrs@gmail.com',
+
+  [string]$SendGridSecretVersion = '2'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,84 +35,87 @@ $servicePaths = @{
   'route-exports' = Join-Path $servicesRoot 'route-exports'
 }
 
-$emailServices = @('admin-notes-email', 'check-remaining-deliveries', 'tefap-email')
-$routeExportService = 'route-exports'
-$emailConfigPath = Join-Path $servicesRoot 'email-config.json'
-$sendgridApiKey = $env:SENDGRID_API_KEY
-$sendgridApiKeySecret = $env:SENDGRID_API_KEY_SECRET
+$reportServices = @(
+  'admin-notes-email',
+  'check-remaining-deliveries',
+  'tefap-email'
+)
 
-$fromEmail = $null
-$toEmail = $null
-
-if (Test-Path $emailConfigPath) {
-  $emailConfig = Get-Content $emailConfigPath -Raw | ConvertFrom-Json
-  if ($emailConfig.fromEmail) { $fromEmail = [string]$emailConfig.fromEmail }
-  if ($emailConfig.toEmail) { $toEmail = [string]$emailConfig.toEmail }
-}
-
-if ($Service -eq 'all') {
-  $targets = @('active-status-etl', 'admin-notes-email', 'check-remaining-deliveries', 'tefap-email', 'route-exports')
+$targets = if ($Service -eq 'all') {
+  @(
+    'active-status-etl',
+    'admin-notes-email',
+    'check-remaining-deliveries',
+    'tefap-email',
+    'route-exports'
+  )
 } else {
-  $targets = @($Service)
+  @($Service)
 }
 
-Write-Host "Using project: $ProjectId"
-Write-Host "Using region:  $Region"
-Write-Host "Deploy target: $Service"
-Write-Host ''
+if ([string]::IsNullOrWhiteSpace($FromEmail) -or
+    [string]::IsNullOrWhiteSpace($ReportToEmail)) {
+  throw 'Sender and report recipient must be configured.'
+}
+
+# gcloud uses commas to separate environment-variable assignments.
+if ($FromEmail.Contains(',') -or $ReportToEmail.Contains(',')) {
+  throw 'Specify one sender and one report recipient.'
+}
 
 foreach ($svc in $targets) {
   $sourceDir = $servicePaths[$svc]
 
-  if (-not (Test-Path $sourceDir)) {
-    throw "Source directory not found for '$svc': $sourceDir"
+  if (-not (Test-Path $sourceDir -PathType Container)) {
+    throw "Source directory not found: $sourceDir"
   }
+}
 
-  Write-Host "=== Deploying $svc ===" -ForegroundColor Cyan
+foreach ($svc in $targets) {
+  Write-Host "Deploying $svc to $ProjectId"
+
+  $runtimeAccount = if ($svc -eq 'active-status-etl') {
+    "ffa-etl-runtime@$ProjectId.iam.gserviceaccount.com"
+  } else {
+    "ffa-email-runtime@$ProjectId.iam.gserviceaccount.com"
+  }
 
   $deployArgs = @(
     'run', 'deploy', $svc,
-    '--source', $sourceDir,
+    '--source', $servicePaths[$svc],
     '--project', $ProjectId,
     '--region', $Region,
     '--platform', 'managed',
+    '--service-account', $runtimeAccount,
     '--no-allow-unauthenticated',
     '--quiet'
   )
 
-  if ($emailServices -contains $svc) {
-    if (-not $sendgridApiKey -and -not $sendgridApiKeySecret) {
-      throw "Missing SendGrid credentials. Set SENDGRID_API_KEY or SENDGRID_API_KEY_SECRET before deploying email services."
+  if ($svc -eq 'active-status-etl') {
+    $deployArgs += @(
+      '--update-env-vars', 'PYTHONUNBUFFERED=1'
+    )
+  } else {
+    $deployArgs += @(
+      '--update-secrets',
+      "SENDGRID_API_KEY=sendgrid-api-key:${SendGridSecretVersion}"
+    )
+
+    $envPairs = @("FROM_EMAIL=$FromEmail")
+
+    if ($reportServices -contains $svc) {
+      $envPairs += "TO_EMAIL=$ReportToEmail"
     }
 
-    if ($sendgridApiKeySecret) {
-      $deployArgs += @('--set-secrets', "SENDGRID_API_KEY=$sendgridApiKeySecret:latest")
-    }
-
-    if ($fromEmail -or $toEmail) {
-      $pairs = @()
-      if ($fromEmail) { $pairs += "FROM_EMAIL=$fromEmail" }
-      if ($toEmail) { $pairs += "TO_EMAIL=$toEmail" }
-      if ($sendgridApiKey -and -not $sendgridApiKeySecret) {
-        $pairs += "SENDGRID_API_KEY=$sendgridApiKey"
-      }
-      if ($pairs.Count -gt 0) {
-        $deployArgs += @('--set-env-vars', ($pairs -join ','))
-      }
-    } elseif ($sendgridApiKey -and -not $sendgridApiKeySecret) {
-      $deployArgs += @('--set-env-vars', "SENDGRID_API_KEY=$sendgridApiKey")
-    }
-  } elseif ($svc -eq $routeExportService -and $fromEmail) {
-    $deployArgs += @('--set-env-vars', "FROM_EMAIL=$fromEmail")
+    $deployArgs += @(
+      '--update-env-vars', ($envPairs -join ',')
+    )
   }
 
   & gcloud @deployArgs
   if ($LASTEXITCODE -ne 0) {
-    throw "gcloud deploy failed for $svc with exit code $LASTEXITCODE"
+    throw "Deployment failed for $svc"
   }
-
-  Write-Host "Deployed $svc" -ForegroundColor Green
-  Write-Host ''
 }
 
-Write-Host 'All requested deployments completed.' -ForegroundColor Green
+Write-Host 'Cloud Run deployments completed.'

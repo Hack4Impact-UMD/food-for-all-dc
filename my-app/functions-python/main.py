@@ -5,6 +5,9 @@ import firebase_admin
 from firebase_functions import https_fn, options, scheduler_fn
 from firebase_admin import auth, firestore
 from typing import Optional
+options.set_global_options(
+    service_account="ffa-functions-runtime@food-for-all-dc-ffa.iam.gserviceaccount.com"
+)
 from clustering import (
     cluster_deliveries_k_means,
     geocode_addresses_endpoint,
@@ -31,6 +34,8 @@ _user_management_cors = options.CorsOptions(
         r"^https://app\.foodforalldc\.org$", # Production custom domain
         r"^https://food-for-all-dc-caf23\.web\.app$", # Firebase Hosting URL 1
         r"^https://food-for-all-dc-caf23\.firebaseapp\.com$", # Firebase Hosting URL 2
+        r"^https://food-for-all-dc-ffa\.web\.app$",
+        r"^https://food-for-all-dc-ffa\.firebaseapp\.com$",
     ],
     cors_methods=["post", "options"] # Allow POST and preflight OPTIONS requests
 )
@@ -199,7 +204,7 @@ def _delete_user_records(db, uid: str, auth_client=auth) -> dict:
     return {"authDeleted": auth_deleted, "firestoreDeleted": True}
 
 
-@https_fn.on_call(region="us-central1", cors=_user_management_cors)
+@https_fn.on_call(region="us-central1", cors=_user_management_cors, invoker="public")
 def createUserAccount(req: https_fn.CallableRequest):
     db = firestore.client()
     caller_role = _require_user_manager(req, db)
@@ -234,7 +239,8 @@ def createUserAccount(req: https_fn.CallableRequest):
 
 @https_fn.on_call(
     region="us-central1",
-    cors=_user_management_cors
+    cors=_user_management_cors,
+    invoker="public"
 )
 def deleteUserAccount(req: https_fn.CallableRequest):
     """
@@ -390,9 +396,8 @@ def run_update(tz_name: str = "America/New_York") -> dict:
 
 
 @scheduler_fn.on_schedule(
-    # Cron: minute hour day-of-month month day-of-week
-    # This runs at 10:00 every day in America/New_York.
     schedule="every day 10:00",
+    timezone=scheduler_fn.Timezone("America/New_York"),
     region="us-central1",
     memory=512,
     timeout_sec=300,

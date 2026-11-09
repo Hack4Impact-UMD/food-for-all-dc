@@ -62,7 +62,7 @@ export const getFirebaseAuth = (): Auth => {
 export const getFirebaseFunctions = (): Functions => {
   if (!functionsInstance) {
     functionsInstance = getFunctions(app);
-    if (process.env.NODE_ENV === "development") {
+    if (useEmulators) {
       try {
         connectFunctionsEmulator(functionsInstance, "localhost", 5001);
       } catch (err) {

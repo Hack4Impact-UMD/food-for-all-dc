@@ -1,0 +1,13 @@
+[
+  {
+    "origin": [
+      "https://food-for-all-dc-ffa.web.app",
+      "https://food-for-all-dc-ffa.firebaseapp.com",
+      "https://app.foodforalldc.org",
+      "http://localhost:3000"
+    ],
+    "method": ["GET", "HEAD"],
+    "responseHeader": ["Content-Type"],
+    "maxAgeSeconds": 3600
+  }
+]

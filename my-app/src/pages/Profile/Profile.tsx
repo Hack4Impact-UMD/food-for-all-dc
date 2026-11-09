@@ -734,7 +734,7 @@ const Profile = () => {
         throw new Error("Authentication token is missing. User may not be logged in.");
       }
 
-      const response = await fetch("https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app", {
+      const response = await fetch("https://geocode-addresses-endpoint-mo6r4hjeka-uc.a.run.app", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

@@ -4,7 +4,7 @@
   "description": "Cloud Function that emails the route exports to drivers/volunteers",
   "main": "index.js",
   "engines": {
-    "node": "18"
+    "node": "22"
   },
   "scripts": {
     "start": "functions-framework --target=emailDeliveryZip"
